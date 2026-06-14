@@ -8,7 +8,7 @@ from src.clients.quark_client import Quark
 from src.clients.baidu_client import Baidu
 from src.db.resources_dao import insert_resource, delete_by_share_link, update_share_link
 from src.db.cookie_config_dao import get_cookie_by_cloud_name
-from src.db.stored_files_dao import insert_stored_file, get_washed_link_by_original
+from src.db.stored_files_dao import insert_stored_file, get_washed_link_by_original, delete_stored_file_by_original_link
 from src.scheduler.email_scheduler import send_wash_failed_email
 from utils.netdisk_utils import match_netdisk_link
 
@@ -315,6 +315,10 @@ def del_share(share_data):
         if not share_url:
             return False
 
+        # 1. 先清理 stored_files 缓存记录（无论物理删除是否成功都应清理）
+        #    这样后续对同一链接的转存会重新执行，不会返回已失效的缓存链接
+        delete_stored_file_by_original_link(share_url)
+
         # 1. 获取 Cookie
         netdisk_type = match_netdisk_link(share_url)
         client_cookie = get_and_validate_cookie(netdisk_type)
@@ -339,7 +343,7 @@ def del_share(share_data):
             file_id=file_id
         )
 
-        # 3. 逻辑删除（数据库记录清理）
+        # 3. 逻辑删除（resources 表记录清理）
         if status:
             delete_by_share_link(share_url)
             logger.info(f"成功清理 {netdisk_type} 资源及其数据库记录")

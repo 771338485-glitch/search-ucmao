@@ -166,6 +166,27 @@ def delete_stored_files_by_ids(ids: List[int]) -> int:
             return 0
 
 
+def delete_stored_file_by_original_link(original_share_link: str) -> int:
+    """
+    根据分享链接删除 stored_files 记录（同时匹配原始链接和洗白链接）。
+    因为 del_share 可能接收到新链接或原链接，需要两边都查。
+    """
+    delete_sql = "DELETE FROM stored_files WHERE original_share_link = %s OR share_link = %s"
+
+    with db_cursor(commit=True) as cursor:
+        if cursor is None:
+            return 0
+        try:
+            cursor.execute(delete_sql, (original_share_link, original_share_link))
+            deleted_count = cursor.rowcount
+            if deleted_count > 0:
+                logger.info(f"已清理 stored_files 缓存记录: {original_share_link}, 共 {deleted_count} 条")
+            return deleted_count
+        except Exception as e:
+            logger.error(f"删除 stored_files 缓存记录失败: {e}")
+            return 0
+
+
 def update_delete_status(record_id: int, status: str, attempts: Optional[int] = None) -> bool:
     """
     更新删除状态
