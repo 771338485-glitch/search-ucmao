@@ -126,8 +126,8 @@ def create_share(share_data):
         has_id = 'id' in share_data
         share_id = share_data.get('id')
 
-        logger.debug(f"[洗白] 开始处理资源: {title}, URL: {share_url}")
-        logger.debug(f"[洗白] 转存配置: {save_to_netdisk}")
+        logger.info(f"[洗白] 开始处理资源: {title}, URL: {share_url}")
+        logger.info(f"[洗白] 转存配置: {save_to_netdisk}")
 
         # 特殊处理：跳过特定夸克网盘链接的洗白操作
         # 解码URL并检查是否包含特定路径
@@ -139,28 +139,30 @@ def create_share(share_data):
 
         # 1. 匹配网盘类型
         netdisk_type = match_netdisk_link(share_url)
-        logger.debug(f"[洗白] 识别网盘类型: {netdisk_type}")
-        
+        logger.info(f"[洗白] 识别网盘类型: {netdisk_type}")
+
         config_map = {
             "夸克网盘": {"class": Quark, "enabled": save_to_netdisk.get('quark', False)},
             "百度网盘": {"class": Baidu, "enabled": save_to_netdisk.get('baidu', False)}
         }
-        
+
         conf = config_map.get(netdisk_type)
 
         # 2. 判断是否需要转存
         if not conf:
             logger.warning(f"[洗白] 不支持的网盘类型或无法识别: {netdisk_type}")
             return share_data if not has_id else None
-        
+
         if not conf["enabled"]:
             logger.warning(f"[洗白] 转存开关未开启: {netdisk_type}, save_to_netdisk={save_to_netdisk}")
             return share_data if not has_id else None
 
         # 3. 检查是否已经洗白过（去重）
+        logger.info(f"[洗白] 检查是否已洗白过: {share_url}")
         existing = get_washed_link_by_original(share_url)
+        logger.info(f"[洗白] 查询结果: {existing}")
         if existing and existing.get('share_link'):
-            logger.debug(f"[洗白] 该链接已洗白过，直接返回: {existing['share_link']}")
+            logger.info(f"[洗白] 该链接已洗白过，直接返回: {existing['share_link']}")
             return {
                 "share_url": existing['share_link'],
                 "file_id": existing['file_id']
@@ -216,9 +218,13 @@ def sync_create_share(share_data):
         # 3. 执行转存
         # 使用环境变量配置的默认保存目录，默认为"/桃白白影视/"
         base_dir = os.getenv('DEFAULT_SAVE_DIR', '/桃白白影视/')
+        # 确保路径以/开头（百度API要求绝对路径）
+        if not base_dir.startswith('/'):
+            base_dir = '/' + base_dir
         # 直接使用根目录，不创建子目录
         default_save_dir = base_dir.rstrip('/') + '/'
-        logger.debug(f"[洗白] 开始执行转存操作，目标路径: {default_save_dir}")
+        logger.info(f"[洗白] 开始执行转存操作，目标路径: {default_save_dir}")
+        logger.info(f"[洗白] 网盘类型: {netdisk_type}, 分享链接: {share_url}")
         new_file_id, file_name, new_share_url = _handle_netdisk_operation(
             client_class=conf["class"],
             client_cookie=client_cookie,
@@ -226,6 +232,8 @@ def sync_create_share(share_data):
             to_pdir_path=default_save_dir,
             operation='store'
         )
+
+        logger.info(f"[洗白] 转存结果: file_id={new_file_id}, file_name={file_name}, share_url={new_share_url}")
 
         if not new_share_url:
             logger.warning(f"[洗白] 转存失败，链接可能已失效: {share_url}")

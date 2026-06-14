@@ -104,6 +104,10 @@ class Baidu:
             # 6. 构建目标路径
             full_path = f"{to_dir.rstrip('/')}/{file_name}" if to_dir != '/' else f"/{file_name}"
             
+            # 确保路径以/开头（百度API要求绝对路径）
+            if not full_path.startswith('/'):
+                full_path = '/' + full_path
+            
             # 7. 直接转存逻辑（跳过删除操作）
             if is_dir:
                 # 文件夹：直接转存（跳过删除操作）
@@ -256,8 +260,14 @@ class Baidu:
         try:
             url = "https://pan.baidu.com/api/gettemplatevariable?fields=[%22bdstoken%22]"
             res = self.session.get(url)
-            return res.json().get("result", {}).get("bdstoken", "")
-        except:
+            bdstoken = res.json().get("result", {}).get("bdstoken", "")
+            if bdstoken:
+                logger.info(f"[百度网盘] bdstoken 获取成功: {bdstoken[:10]}...")
+            else:
+                logger.warning(f"[百度网盘] bdstoken 获取失败，响应: {res.text[:200]}")
+            return bdstoken
+        except Exception as e:
+            logger.error(f"[百度网盘] bdstoken 获取异常: {e}")
             return ""
 
     def _parse_share_url(self, url: str) -> Tuple[str, str]:
@@ -366,6 +376,10 @@ class Baidu:
         # 确保to_path与_get_or_create_dir使用相同的格式（不带/结尾）
         if to_path.endswith('/'):
             to_path = to_path[:-1]
+        
+        # 确保路径以/开头（百度API要求绝对路径）
+        if not to_path.startswith('/'):
+            to_path = '/' + to_path
         
         # 如果有randsk，添加到参数中
         sekey_param = {}
@@ -552,6 +566,12 @@ class Baidu:
     def _create_dir(self, dir_path: str) -> bool:
         """创建目录"""
         logger.debug(f"正在创建目录: {dir_path}")
+
+        # 先检查目录是否已存在
+        if self._check_dir_exists(dir_path):
+            logger.debug(f"目录已存在: {dir_path}")
+            return True
+
         url = "https://pan.baidu.com/api/create"
         params = {
             "a": "commit",
@@ -567,8 +587,10 @@ class Baidu:
             "block_list": "[]"
         }
         try:
+            logger.info(f"[百度网盘] 创建目录请求: {dir_path}, bdstoken: {self.bdstoken[:10] if self.bdstoken else '空'}")
             res = self.session.post(url, params=params, data=data)
             js = res.json()
+            logger.info(f"[百度网盘] 创建目录响应: {js}")
             if js.get("errno") == 0:
                 logger.debug(f"目录创建成功: {dir_path}")
                 return True
@@ -581,26 +603,73 @@ class Baidu:
             logger.error(f"创建目录请求异常: {e}")
             return False
 
+    def _check_dir_exists(self, dir_path: str) -> bool:
+        """检查目录是否已存在"""
+        try:
+            # 获取父目录路径
+            parent_path = '/'.join(dir_path.rstrip('/').split('/')[:-1]) or '/'
+            dir_name = dir_path.rstrip('/').split('/')[-1]
+
+            url = "https://pan.baidu.com/api/list"
+            params = {
+                "dir": parent_path,
+                "bdstoken": self.bdstoken,
+                "clienttype": 0,
+                "web": 1,
+                "page": 1,
+                "num": 100,
+                "order": "time",
+                "desc": 1
+            }
+
+            res = self.session.get(url, params=params)
+            data = res.json()
+
+            if data.get("errno") != 0:
+                logger.debug(f"获取目录列表失败: {data}")
+                return False
+
+            file_list = data.get("list", [])
+            if not file_list:
+                return False
+
+            # 检查目录是否存在
+            for file in file_list:
+                file_name = file.get("server_filename", "")
+                is_dir = file.get("isdir", 0) == 1
+                if is_dir and file_name == dir_name:
+                    logger.debug(f"找到已存在的目录: {dir_name}")
+                    return True
+
+            return False
+        except Exception as e:
+            logger.debug(f"检查目录是否存在时出错: {e}")
+            return False
+
     def _get_or_create_dir(self, dir_path: str) -> bool:
         """获取或创建目录"""
+        logger.info(f"[百度网盘] _get_or_create_dir 调用: {dir_path}")
         if dir_path == '/' or dir_path == '':
             return True
-        
+
         # 确保dir_path不以/结尾（百度API要求）
         if dir_path.endswith('/'):
             dir_path = dir_path[:-1]
-        
+
         # 分割路径，逐步创建
         parts = dir_path.strip('/').split('/')
         current_path = ''
-        
+
         for part in parts:
             if not part:
                 continue
             current_path += '/' + part
+            logger.info(f"[百度网盘] 创建目录: {current_path}")
             if not self._create_dir(current_path):
+                logger.error(f"[百度网盘] 创建目录失败: {current_path}")
                 return False
-        
+
+        logger.info(f"[百度网盘] 目录创建成功: {dir_path}")
         return True
         
     def _cleanup_timestamp_folders(self):
