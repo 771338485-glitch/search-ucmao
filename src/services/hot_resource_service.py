@@ -37,21 +37,25 @@ def add_resource_and_share(resource_data: dict):
 
     logger.info(f"成功直接添加资源到数据库，标题: {resource_data['name']}")
 
-    # 调用 create_share 处理网盘替换
-    share_data = {
-        "id": new_id,
-        "share_url": resource_data["share_link"],
-        "title": resource_data["name"],
-        "cloud_name": resource_data.get("cloud_name", ""),
-        "resource_type": resource_data.get("type", ""),
-        "remark": resource_data.get("remarks", ""),
-        "save_to_netdisk": resource_data.get("save_to_netdisk", {}),
-    }
+    # 只有当至少勾选了一个转存选项时，才调用 create_share 处理网盘替换
+    save_to_netdisk = resource_data.get("save_to_netdisk", {})
+    if any(save_to_netdisk.values()):
+        share_data = {
+            "id": new_id,
+            "share_url": resource_data["share_link"],
+            "title": resource_data["name"],
+            "cloud_name": resource_data.get("cloud_name", ""),
+            "resource_type": resource_data.get("type", ""),
+            "remark": resource_data.get("remarks", ""),
+            "save_to_netdisk": save_to_netdisk,
+        }
 
-    try:
-        create_share(share_data)
-    except Exception as share_err:
-        logger.error(f"调用 create_share 处理资源分享链接时出错: {share_err}")
+        try:
+            create_share(share_data)
+        except Exception as share_err:
+            logger.error(f"调用 create_share 处理资源分享链接时出错: {share_err}")
+    else:
+        logger.info(f"未勾选转存选项，跳过洗白操作: {resource_data['name']}")
 
     return True, "资源添加成功", new_id
 

@@ -17,22 +17,35 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        
+
+        # 检查管理员凭据是否已配置
+        if not ADMIN_USERNAME or not ADMIN_PASSWORD:
+            logger.error("管理员凭据未配置")
+            return render_template('login.html', error='系统配置错误：管理员凭据未配置')
+
         if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             # 创建JWT令牌
             token = create_jwt_token()
-            
-            # 创建响应对象，重定向到配置管理页面
-            response = redirect(url_for('api_config.config_page'))
-            # 设置JWT令牌到cookie
-            response.set_cookie('token', token, httponly=True)
-            
+
+            # 创建响应对象，重定向到首页
+            response = redirect(url_for('search_index'))
+            # 设置JWT令牌到cookie（添加安全属性）
+            response.set_cookie(
+                'token',
+                token,
+                httponly=True,
+                secure=True,      # 仅通过 HTTPS 传输
+                samesite='Lax',   # 防止 CSRF
+                path='/',
+                max_age=86400     # 24 小时
+            )
+
             logger.info(f"管理员 {username} 登录成功")
             return response
         else:
             logger.warning(f"管理员登录失败，用户名: {username}")
             return render_template('login.html', error='账号或密码错误')
-    
+
     return render_template('login.html')
 
 # 登出路由

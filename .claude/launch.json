@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "search-ucmao",
+      "runtimeExecutable": "/usr/local/bin/python",
+      "runtimeArgs": ["app.py"],
+      "port": 5004
+    }
+  ]
+}

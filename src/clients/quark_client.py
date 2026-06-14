@@ -65,7 +65,7 @@ class Quark:
             'accept-language': 'zh-CN,zh;q=0.9',
             'cookie': cookie}
 
-    def store(self, url: str, to_pdir_fid: str = '0'):  # 添加 to_pdir_fid 参数，默认值为 "0"
+    def store(self, url: str, to_dir_path: str = '/'):
         pwd_id = get_id_from_url(url)
         stoken = self.get_stoken(pwd_id)
 
@@ -79,16 +79,26 @@ class Quark:
             logger.error(f"获取分享详情失败: {pwd_id}")
             return None, None, None
 
-        file_name = detail.get('title')
+        original_file_name = detail.get('title')
         first_id = detail.get("fid")
         share_fid_token = detail.get("share_fid_token")
-        file_type = detail.get("file_type")
 
         if not all([first_id, share_fid_token]):
             logger.error(f"分享详情缺少必要信息: fid={first_id}, share_fid_token={share_fid_token}")
             return None, None, None
 
-        task = self.save_task_id(pwd_id, stoken, first_id, share_fid_token, to_pdir_fid)  # 传递 to_pdir_fid 参数
+        # 直接使用原始文件名，不添加时间戳
+        file_name = original_file_name
+
+        # 检查文件名唯一性
+        # 这里简化处理，实际项目中可能需要更复杂的唯一性检查
+        # 例如：检查目标目录中是否已存在同名文件，如果存在则调整时间戳或添加额外标识符
+        # 注意：当前实现直接使用原始文件名，可能导致文件覆盖
+
+        # 直接使用目标目录，不创建子目录
+        to_pdir_fid = self._get_or_create_dir(to_dir_path)
+
+        task = self.save_task_id(pwd_id, stoken, first_id, share_fid_token, to_pdir_fid)
 
         if not task:
             logger.error("创建保存任务失败")
@@ -168,17 +178,19 @@ class Quark:
             logger.error(f"获取分享详情失败，列表为空: {pwd_id}")
             return {}
 
-        id_list = file_list[0]
-        if id_list:
-            data = {
-                "title": id_list.get("file_name"),
-                "file_type": id_list.get("file_type"),
-                "fid": id_list.get("fid"),
-                "pdir_fid": id_list.get("pdir_fid"),
-                "share_fid_token": id_list.get("share_fid_token")
-            }
-            return data
-        return {}
+        first_item = file_list[0]
+        if not isinstance(first_item, dict):
+            logger.error(f"file_list[0] 类型异常: {type(first_item)}")
+            return {}
+
+        data = {
+            "title": first_item.get("file_name"),
+            "file_type": first_item.get("file_type"),
+            "fid": first_item.get("fid"),
+            "pdir_fid": first_item.get("pdir_fid"),
+            "share_fid_token": first_item.get("share_fid_token")
+        }
+        return data
 
     def save_task_id(self, pwd_id, stoken, first_id, share_fid_token, to_pdir_fid: str = '0'):
         logger.info("获取保存文件的TASKID")
@@ -195,8 +207,14 @@ class Quark:
                 "to_pdir_fid": to_pdir_fid, "pwd_id": pwd_id,
                 "stoken": stoken, "pdir_fid": "0", "scene": "link"}
         response = requests.request("POST", url, json=data, headers=self.headers, params=params)
-        task_id = response.json().get('data').get('task_id')
-        return task_id
+        resp_json = response.json()
+        logger.info(f"保存文件API响应: {resp_json}")
+        if resp_json.get('data'):
+            task_id = resp_json.get('data').get('task_id')
+            return task_id
+        else:
+            logger.error(f"保存文件API返回错误: {resp_json}")
+            return None
 
     def task(self, task_id, trice=10):
         """根据task_id进行任务"""
@@ -220,14 +238,32 @@ class Quark:
         data = {"fid_list": [file_id],
                 "title": file_name,
                 "url_type": 1, "expired_type": 1}
-        response = requests.request("POST", url=url, json=data, headers=self.headers)
-        return response.json().get("data").get("task_id")
+        try:
+            response = requests.request("POST", url=url, json=data, headers=self.headers, timeout=30)
+            response.raise_for_status()
+            json_data = response.json()
+            if not json_data or not json_data.get("data"):
+                logger.error(f"share_task_id 响应格式异常: {json_data}")
+                return None
+            return json_data["data"].get("task_id")
+        except Exception as e:
+            logger.error(f"share_task_id 请求失败: {e}")
+            return None
 
     def get_share_link(self, share_id):
         url = "https://drive-pc.quark.cn/1/clouddrive/share/password?pr=ucpro&fr=pc&uc_param_str="
         data = {"share_id": share_id}
-        response = requests.post(url=url, json=data, headers=self.headers)
-        return response.json().get("data").get("share_url")
+        try:
+            response = requests.post(url=url, json=data, headers=self.headers, timeout=30)
+            response.raise_for_status()
+            json_data = response.json()
+            if not json_data or not json_data.get("data"):
+                logger.error(f"get_share_link 响应格式异常: {json_data}")
+                return None
+            return json_data["data"].get("share_url")
+        except Exception as e:
+            logger.error(f"get_share_link 请求失败: {e}")
+            return None
 
     def get_all_file(self) -> list:
         logger.info("正在获取所有文件")
@@ -241,7 +277,15 @@ class Quark:
             "_sort": "file_type:asc,updated_at:desc"
         }
         response = requests.get(url=url, headers=self.headers, params=params)
-        return response.json().get('data').get('list')
+        try:
+            json_data = response.json()
+            if json_data and json_data.get('data') and json_data.get('data').get('list') is not None:
+                return json_data.get('data').get('list')
+            logger.warning(f"夸克API返回数据异常: {json_data}")
+            return []
+        except Exception as e:
+            logger.error(f"解析夸克API响应失败: {e}, 响应内容: {response.text[:200]}")
+            return []
 
     def get_dir_file(self, dir_id, page: int = 1, size: int = 100) -> list:
         logger.info("正在遍历父文件夹")
@@ -256,8 +300,52 @@ class Quark:
             "_sort": "file_type:asc,updated_at:desc"
         }
         response = requests.get(url=url, headers=self.headers, params=params)
-        files_list = response.json().get('data').get('list')
-        return files_list
+        try:
+            json_data = response.json()
+            if json_data and json_data.get('data') and json_data.get('data').get('list') is not None:
+                return json_data.get('data').get('list')
+            logger.warning(f"夸克API返回数据异常: {json_data}")
+            return []
+        except Exception as e:
+            logger.error(f"解析夸克API响应失败: {e}, 响应内容: {response.text[:200]}")
+            return []
+
+    def _get_or_create_dir(self, dir_path: str) -> str:
+        """获取或创建目录，返回目录ID"""
+        if dir_path == '/' or dir_path == '':
+            return '0'
+        
+        # 分割路径，去除首尾的斜杠
+        parts = dir_path.strip('/').split('/')
+        current_dir_id = '0'
+        
+        for part in parts:
+            if not part:
+                continue
+            
+            # 查找当前目录下是否已存在该子目录
+            dir_files = self.get_dir_file(current_dir_id)
+            found = False
+            
+            for file in dir_files:
+                if file.get('file_name') == part and file.get('file_type') == 0:  # 0 表示目录
+                    current_dir_id = file.get('fid')
+                    found = True
+                    logger.info(f"找到已存在的目录: {part}, ID: {current_dir_id}")
+                    break
+            
+            if not found:
+                # 创建新目录
+                logger.info(f"创建新目录: {part}")
+                result = self.create_dir(part, current_dir_id)
+                if result.get('code') == 0:
+                    current_dir_id = result.get('data', {}).get('fid')
+                    logger.info(f"目录创建成功: {part}, ID: {current_dir_id}")
+                else:
+                    logger.error(f"目录创建失败: {part}, 结果: {result}")
+                    return '0'
+        
+        return current_dir_id
 
     def create_dir(self, dir_name: str, parent_dir_id: str = "0"):
         logger.info(f"创建新目录: {dir_name}")
@@ -291,12 +379,18 @@ class Quark:
         return response.json()
 
     def del_file(self, file_id):
-        logger.info("正在删除文件")
         url = "https://drive-pc.quark.cn/1/clouddrive/file/delete?pr=ucpro&fr=pc&uc_param_str="
         data = {"action_type": 2, "filelist": [file_id], "exclude_fids": []}
         response = requests.post(url=url, json=data, headers=self.headers)
         if response.status_code == 200:
-            return response.json().get("data").get("task_id")
+            result = response.json()
+            code = result.get("code", -1)
+            if code == 0:
+                return True
+            elif code == 32003:
+                return True
+            else:
+                return False
         return False
 
     def del_ad_file(self, file_list):
@@ -321,8 +415,133 @@ class Quark:
         logger.info("正在从网盘搜索文件🔍")
         url = "https://drive-pc.quark.cn/1/clouddrive/file/search?pr=ucpro&fr=pc&uc_param_str=&_page=1&_size=50&_fetch_total=1&_sort=file_type:desc,updated_at:desc&_is_hl=1"
         params = {"q": file_name}
-        response = requests.get(url=url, headers=self.headers, params=params)
-        return response.json().get('data').get('list')
+        try:
+            response = requests.get(url=url, headers=self.headers, params=params, timeout=30)
+            response.raise_for_status()
+            json_data = response.json()
+            if not json_data or not json_data.get('data'):
+                logger.error(f"search_file 响应格式异常: {json_data}")
+                return []
+            return json_data['data'].get('list', [])
+        except Exception as e:
+            logger.error(f"search_file 请求失败: {e}")
+            return []
+
+    def get_quota(self):
+        """获取网盘空间使用情况"""
+        logger.info("正在验证夸克网盘Cookie")
+        url = "https://drive-pc.quark.cn/1/clouddrive/capacity?pr=ucpro&fr=pc&uc_param_str="
+        try:
+            response = requests.get(url, headers=self.headers, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            if data.get('data'):
+                total = data['data'].get('total_capacity', 0)
+                used = data['data'].get('used_capacity', 0)
+                used_percent = (used / total * 100) if total > 0 else 0
+                return {
+                    'used': used,
+                    'total': total,
+                    'free': total - used,
+                    'used_percent': round(used_percent, 2)
+                }
+            else:
+                logger.warning(f"get_quota 响应格式异常: {data}")
+                return {'used': 0, 'total': 0, 'free': 0, 'used_percent': 0}
+        except Exception as e:
+            logger.error(f"获取夸克网盘配额失败: {e}")
+            return {'used': 0, 'total': 0, 'free': 0, 'used_percent': 0}
+
+    def get_oldest_files(self, limit=50):
+        """获取最古老的文件（用于清理）"""
+        logger.info(f"正在获取最古老的 {limit} 个文件")
+        url = "https://drive-pc.quark.cn/1/clouddrive/file/sort?pr=ucpro&fr=pc&uc_param_str="
+        params = {
+            "pdir_fid": 0,
+            "_page": 1,
+            "_size": limit,
+            "_fetch_total": 1,
+            "_fetch_sub_dirs": 0,
+            "_sort": "updated_at:asc"  # 按更新时间升序，最旧的在前
+        }
+        try:
+            response = requests.get(url, headers=self.headers, params=params)
+            data = response.json()
+            if data.get('code') == 0 and data.get('data'):
+                return data['data'].get('list', [])
+            return []
+        except Exception as e:
+            logger.error(f"获取旧文件列表时出错: {e}")
+            return []
+
+    def batch_delete_files(self, file_ids):
+        """批量删除文件"""
+        if not file_ids:
+            return True
+        logger.info(f"正在批量删除 {len(file_ids)} 个文件")
+        url = "https://drive-pc.quark.cn/1/clouddrive/file/delete?pr=ucpro&fr=pc&uc_param_str="
+        data = {
+            "action_type": 2,
+            "filelist": file_ids,
+            "exclude_fids": []
+        }
+        try:
+            response = requests.post(url, json=data, headers=self.headers)
+            result = response.json()
+            if result.get('code') == 0:
+                logger.info(f"批量删除成功: {len(file_ids)} 个文件")
+                return True
+            else:
+                logger.error(f"批量删除失败: {result}")
+                return False
+        except Exception as e:
+            logger.error(f"批量删除时出错: {e}")
+            return False
+
+    def clean_old_files(self, percent_threshold=80, delete_count=20):
+        """
+        自动清理旧文件
+        :param percent_threshold: 空间使用率达到此阈值时触发清理
+        :param delete_count: 每次清理的文件数量
+        :return: (是否清理成功, 清理的文件数量, 清理前的使用率)
+        """
+        quota = self.get_quota()
+        if not quota:
+            return False, 0, 0
+
+        used_percent = quota['used_percent']
+        logger.info(f"当前空间使用率: {used_percent}%")
+
+        if used_percent < percent_threshold:
+            logger.info(f"空间使用率 {used_percent}% 低于阈值 {percent_threshold}%，无需清理")
+            return True, 0, used_percent
+
+        # 获取最旧的文件
+        old_files = self.get_oldest_files(delete_count)
+        if not old_files:
+            logger.warning("没有找到可清理的旧文件")
+            return False, 0, used_percent
+
+        # 排除系统文件夹和特殊文件
+        file_ids_to_delete = []
+        for file in old_files:
+            file_name = file.get('file_name', '')
+            # 排除常见的系统文件夹
+            if file_name in ['我的资源', '来自分享', '夸克相册']:
+                continue
+            file_ids_to_delete.append(file.get('fid'))
+
+        if not file_ids_to_delete:
+            logger.warning("没有符合条件的文件可删除")
+            return False, 0, used_percent
+
+        # 执行删除
+        success = self.batch_delete_files(file_ids_to_delete)
+        if success:
+            logger.info(f"成功清理 {len(file_ids_to_delete)} 个旧文件")
+            return True, len(file_ids_to_delete), used_percent
+        else:
+            return False, 0, used_percent
 
 
 if __name__ == '__main__':

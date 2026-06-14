@@ -1,4 +1,4 @@
-// hot_resource.js 完整修复版
+// hot_resource.js 精简版
 
 // ==========================================
 // 1. 全局变量与配置
@@ -24,8 +24,6 @@ const batchAddResourceForm = document.getElementById('batchAddResourceForm');
 const saveResourceBtn = document.getElementById('saveResourceBtn');
 const updateResourceBtn = document.getElementById('updateResourceBtn');
 const batchSaveResourceBtn = document.getElementById('batchSaveResourceBtn');
-const exportCurrentPageBtn = document.getElementById('exportCurrentPageBtn');
-const exportAllPagesBtn = document.getElementById('exportAllPagesBtn');
 
 // Cookie 配置相关元素
 const cookieConfigModal = document.getElementById('cookieConfigModal');
@@ -41,7 +39,6 @@ const quarkCookieInput = document.getElementById('quarkCookie');
 function matchNetdiskLink(link) {
     if (!link) return "其他";
     const netdiskRules = [
-        // 网盘
         ["百度网盘", /(?:https?:\/\/)?(?:pan\.baidu\.com|bdpan\.com|baiduyun\.com)\//i],
         ["夸克网盘", /(?:https?:\/\/)?pan\.quark\.cn\//i],
         ["迅雷网盘", /(?:https?:\/\/)?pan\.xunlei\.com\//i],
@@ -49,13 +46,11 @@ function matchNetdiskLink(link) {
         ["悟空网盘", /(?:https?:\/\/)?pan\.wkbrowser\.com\//i],
         ["快兔网盘", /(?:https?:\/\/)?(?:diskyun\.com|www\.diskyun\.com)\//i],
         ["115网盘", /(?:https?:\/\/)?(?:115\.com|115pan\.com|115cdn\.com|anxia\.com)\//i],
-        // 云盘
         ["阿里云盘", /(?:https?:\/\/)?(?:drive\.aliyun\.com|aliyundrive\.com|alipan\.com)\//i],
         ["天翼云盘", /(?:https?:\/\/)?cloud\.189\.cn\//i],
         ["移动云盘", /(?:https?:\/\/)?(?:pan\.10086\.cn|caiyun\.139\.com|yun\.139\.com)\//i],
         ["联通云盘", /(?:https?:\/\/)?pan\.wo\.cn\//i],
         ["123云盘", /(?:https?:\/\/)?(?:123pan\.com|123\d{3}\.com)\//i],
-        // 其他
         ["PikPak", /(?:https?:\/\/)?(?:www\.)?pikpak\.com\//i],
         ["磁力链接", /^magnet:\?xt=urn:btih:/i],
         ["迅雷链接", /thunder:\/\/[A-Za-z0-9+\/=]+/i],
@@ -72,18 +67,89 @@ function matchNetdiskLink(link) {
 }
 
 // 显示 Toast 消息
+function showToast(message, type = 'success') {
+    const toastContainer = document.createElement('div');
+    toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+    toastContainer.style.zIndex = '9999';
+    
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type === 'danger' ? 'danger' : type === 'warning' ? 'warning' : 'success'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    document.body.appendChild(toastContainer);
+    
+    const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+    bsToast.show();
+    
+    toast.addEventListener('hidden.bs.toast', () => {
+        document.body.removeChild(toastContainer);
+    });
+}
 
+// 确认对话框
+async function showConfirm(message, type = 'primary') {
+    return new Promise((resolve) => {
+        const confirmModal = document.createElement('div');
+        confirmModal.className = 'modal fade';
+        confirmModal.setAttribute('tabindex', '-1');
+        confirmModal.innerHTML = `
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">确认操作</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>${message}</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-${type}" id="confirmModalOkBtn">确定</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(confirmModal);
+        const modal = new bootstrap.Modal(confirmModal);
+        modal.show();
+        
+        document.getElementById('confirmModalOkBtn').addEventListener('click', () => {
+            modal.hide();
+            resolve(true);
+        });
+        
+        confirmModal.addEventListener('hidden.bs.modal', () => {
+            document.body.removeChild(confirmModal);
+            resolve(false);
+        });
+    });
+}
 
 // ==========================================
 // 4. 数据加载与渲染
 // ==========================================
 
-// 加载资源列表
 async function loadResources() {
     const searchKeyword = searchInput ? searchInput.value.trim() : '';
+    
+    if (resourcesTableBody) {
+        resourcesTableBody.innerHTML = '<tr class="loading"><td colspan="7"></td></tr>';
+    }
 
     try {
-        const response = await fetch(`/api/resources?page=${currentPage}&page_size=${pageSize}&search=${encodeURIComponent(searchKeyword)}`);
+        const url = `/api/resources?page=${currentPage}&page_size=${pageSize}&search=${encodeURIComponent(searchKeyword)}`;
+        const response = await fetch(url);
         const data = await response.json();
 
         if (data.success) {
@@ -93,26 +159,32 @@ async function loadResources() {
             renderPagination();
         } else {
             showToast('加载资源失败: ' + (data.message || '未知错误'), 'danger');
+            if (resourcesTableBody) {
+                resourcesTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-5">加载失败，请重试</td></tr>';
+            }
         }
     } catch (error) {
         console.error('加载资源失败:', error);
         showToast('网络请求失败，请检查服务状态', 'danger');
+        if (resourcesTableBody) {
+            resourcesTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-5">网络错误，请检查网络连接</td></tr>';
+        }
     }
 }
 
-// 渲染表格
 function renderTable() {
     if (!resourcesTableBody) return;
+    
     resourcesTableBody.innerHTML = '';
 
     if (!resourcesData || resourcesData.length === 0) {
         const emptyRow = document.createElement('tr');
-        emptyRow.innerHTML = '<td colspan="7" class="text-center">暂无数据</td>';
+        emptyRow.innerHTML = '<td colspan="7" class="text-center py-5">暂无数据</td>';
         resourcesTableBody.appendChild(emptyRow);
         return;
     }
 
-    resourcesData.forEach(resource => {
+    resourcesData.forEach((resource, index) => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${resource.id}</td>
@@ -146,25 +218,22 @@ function renderTable() {
                 </div>
             </td>
         `;
+        row.style.animationDelay = `${index * 0.1}s`;
         resourcesTableBody.appendChild(row);
     });
 
-    // 重新绑定事件监听器
     bindActionEvents();
 }
 
-// 渲染分页
 function renderPagination() {
     if (!pagination) return;
     pagination.innerHTML = '';
 
-    // 上一页
     const prevLi = document.createElement('li');
     prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
     prevLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage - 1}">&laquo;</a>`;
     pagination.appendChild(prevLi);
 
-    // 页码逻辑
     const startPage = Math.max(1, currentPage - 2);
     const endPage = Math.min(totalPages, startPage + 4);
 
@@ -182,7 +251,6 @@ function renderPagination() {
         pagination.appendChild(createPageItem(totalPages));
     }
 
-    // 下一页
     const nextLi = document.createElement('li');
     nextLi.className = `page-item ${currentPage === totalPages || totalPages === 0 ? 'disabled' : ''}`;
     nextLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage + 1}">&raquo;</a>`;
@@ -204,25 +272,21 @@ function createEllipsis() {
 }
 
 // ==========================================
-// 5. 交互事件处理 (编辑/删除/复制)
+// 5. 交互事件处理
 // ==========================================
 
 function bindActionEvents() {
-    // 编辑
     document.querySelectorAll('.edit-btn').forEach(btn => {
         btn.addEventListener('click', () => editResource(parseInt(btn.getAttribute('data-id'))));
     });
-    // 删除
     document.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', () => deleteResource(parseInt(btn.getAttribute('data-id'))));
     });
-    // 复制
     document.querySelectorAll('.copy-btn').forEach(btn => {
         btn.addEventListener('click', () => copyResource(parseInt(btn.getAttribute('data-id'))));
     });
 }
 
-// 复制资源信息
 function copyResource(id) {
     const resource = resourcesData.find(r => r.id === id);
     if (!resource) return;
@@ -235,7 +299,6 @@ function copyResource(id) {
     });
 }
 
-// 删除资源
 async function deleteResource(id) {
     if (await showConfirm('确定要删除这条资源吗？此操作不可恢复。', 'danger')) {
         try {
@@ -254,7 +317,6 @@ async function deleteResource(id) {
     }
 }
 
-// 获取详情并打开编辑框
 async function editResource(id) {
     try {
         const response = await fetch(`/api/resources/${id}`);
@@ -279,10 +341,9 @@ async function editResource(id) {
 }
 
 // ==========================================
-// 6. 核心业务逻辑 (新增/更新/批量)
+// 6. 核心业务逻辑
 // ==========================================
 
-// 保存单个资源
 async function saveResource() {
     if (!addResourceForm.checkValidity()) {
         addResourceForm.reportValidity();
@@ -299,7 +360,6 @@ async function saveResource() {
         xunlei: document.getElementById('resourceSaveToXunlei').checked,
         uc: document.getElementById('resourceSaveToUc').checked,
         wukong: document.getElementById('resourceSaveToWukong').checked,
-        // '115' removed based on commented out html, add back if needed
     };
 
     const payload = {
@@ -311,7 +371,6 @@ async function saveResource() {
         save_to_netdisk: saveToNetdisk
     };
 
-    // 状态切换
     saveResourceBtn.disabled = true;
     saveResourceBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 保存中...';
 
@@ -335,13 +394,11 @@ async function saveResource() {
         console.error(error);
         showToast('请求失败，请检查网络', 'danger');
     } finally {
-        // 关键：无论成功失败都恢复按钮
         saveResourceBtn.disabled = false;
         saveResourceBtn.innerHTML = '<i class="fas fa-save"></i> 保存';
     }
 }
 
-// 更新资源
 async function updateResource() {
     if (!editResourceForm.checkValidity()) {
         editResourceForm.reportValidity();
@@ -354,7 +411,7 @@ async function updateResource() {
 
     const payload = {
         name: document.getElementById('editResourceName').value.trim(),
-        share_link: shareLink,  // 添加分享链接字段
+        share_link: shareLink,
         cloud_name: cloudName,
         type: document.getElementById('editResourceType').value,
         remarks: document.getElementById('editResourceRemarks').value.trim()
@@ -364,7 +421,7 @@ async function updateResource() {
     updateResourceBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 更新中...';
 
     try {
-        const response = await fetch(`/api/resources/${id}`, {  // 这里应该是PUT请求，路径是/api/resources/:id
+        const response = await fetch(`/api/resources/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -386,7 +443,6 @@ async function updateResource() {
     }
 }
 
-// 批量添加解析逻辑
 function parseBatchResources(content) {
     const resources = [];
     const lines = content.split('\n');
@@ -396,7 +452,6 @@ function parseBatchResources(content) {
         line = line.trim();
         if (!line) return;
 
-        // 匹配标题 (支持中英文冒号)
         const titleMatch = line.match(/^(?:标题|name)[:：]\s*(.+)$/i);
         if (titleMatch) {
             if (currentResource.name && currentResource.share_link) {
@@ -407,7 +462,6 @@ function parseBatchResources(content) {
             return;
         }
 
-        // 匹配链接
         const linkMatch = line.match(/^(?:链接|分享链接|share_link)[:：]\s*(.+)$/i);
         if (linkMatch) {
             currentResource.share_link = linkMatch[1].trim();
@@ -417,14 +471,12 @@ function parseBatchResources(content) {
             return;
         }
 
-        // 匹配类型
         const typeMatch = line.match(/^(?:类型|type)[:：]\s*(.+)$/i);
         if (typeMatch) {
             currentResource.type = typeMatch[1].trim();
             return;
         }
         
-        // 匹配备注
         const remarkMatch = line.match(/^(?:备注|remark|remarks)[:：]\s*(.+)$/i);
         if (remarkMatch) {
             currentResource.remarks = remarkMatch[1].trim();
@@ -432,7 +484,6 @@ function parseBatchResources(content) {
         }
     });
 
-    // 推送最后一条
     if (currentResource.name && currentResource.share_link) {
         resources.push(currentResource);
     }
@@ -440,7 +491,6 @@ function parseBatchResources(content) {
     return resources;
 }
 
-// 批量保存
 async function batchSaveResources() {
     const content = document.getElementById('batchResourceContent').value.trim();
     if (!content) {
@@ -469,17 +519,14 @@ async function batchSaveResources() {
         xunlei: document.getElementById('resourceSaveToXunlei').checked,
         uc: document.getElementById('resourceSaveToUc').checked,
         wukong: document.getElementById('resourceSaveToWukong').checked,
-        // '115' removed based on commented out html, add back if needed
     };
 
-    // 锁定按钮
     batchSaveResourceBtn.disabled = true;
     let successCount = 0;
 
     try {
         for (let i = 0; i < resources.length; i++) {
             const res = resources[i];
-            // 更新按钮文字显示进度
             batchSaveResourceBtn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> 正在保存 ${i + 1}/${resources.length}`;
 
             const payload = {
@@ -510,100 +557,11 @@ async function batchSaveResources() {
         console.error(error);
         showToast('批量处理过程中断', 'danger');
     } finally {
-        // 恢复按钮
         batchSaveResourceBtn.disabled = false;
         batchSaveResourceBtn.innerHTML = '<i class="fas fa-save"></i> 批量添加';
     }
 }
 
-// ==========================================
-// 7. 导出功能 (CSV)
-// ==========================================
-
-function convertToCSV(data) {
-    if (data.length === 0) return '';
-    const headers = ['ID', '标题', '分享链接', '云盘名称', '类型', '备注'];
-    const csvContent = [headers.join(',')];
-
-    data.forEach(resource => {
-        const row = [
-            resource.id,
-            `"${(resource.name || '').replace(/"/g, '""')}"`,
-            `"${(resource.share_link || '').replace(/"/g, '""')}"`,
-            `"${(resource.cloud_name || '').replace(/"/g, '""')}"`,
-            `"${(resource.type || '').replace(/"/g, '""')}"`,
-            `"${(resource.remarks || '').replace(/"/g, '""')}"`
-        ];
-        csvContent.push(row.join(','));
-    });
-    return "\uFEFF" + csvContent.join('\n'); // 添加 BOM 防止乱码
-}
-
-function downloadCSV(csvContent, filename) {
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function exportCurrentPage() {
-    if (resourcesData.length === 0) {
-        showToast('当前页无数据', 'warning');
-        return;
-    }
-    const csv = convertToCSV(resourcesData);
-    downloadCSV(csv, `资源列表_第${currentPage}页_${new Date().toISOString().slice(0, 10)}.csv`);
-}
-
-async function exportAllPages() {
-    if (await showConfirm('确定要导出全部数据吗？数据量大时可能需要较长时间。')) {
-        const exportBtn = document.getElementById('exportAllPagesBtn');
-        const originalText = exportBtn.innerHTML;
-        exportBtn.disabled = true;
-        exportBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 导出中...';
-
-        try {
-            // 先获取第一页以确定总数
-            const searchKeyword = searchInput ? searchInput.value.trim() : '';
-            const res1 = await fetch(`/api/resources?page=1&page_size=${pageSize}&search=${encodeURIComponent(searchKeyword)}`);
-            const data1 = await res1.json();
-            
-            if (!data1.success) throw new Error(data1.message);
-
-            let allItems = [...data1.data.items];
-            const totalP = data1.data.total_pages;
-
-            if (totalP > 1) {
-                const promises = [];
-                for (let i = 2; i <= totalP; i++) {
-                    promises.push(
-                        fetch(`/api/resources?page=${i}&page_size=${pageSize}&search=${encodeURIComponent(searchKeyword)}`)
-                            .then(r => r.json())
-                            .then(d => d.success ? d.data.items : [])
-                    );
-                }
-                const results = await Promise.all(promises);
-                results.forEach(items => allItems = allItems.concat(items));
-            }
-
-            const csv = convertToCSV(allItems);
-            downloadCSV(csv, `资源列表_全部_${new Date().toISOString().slice(0, 10)}.csv`);
-            showToast(`成功导出 ${allItems.length} 条数据`);
-
-        } catch (error) {
-            showToast('导出失败: ' + error.message, 'danger');
-        } finally {
-            exportBtn.disabled = false;
-            exportBtn.innerHTML = originalText;
-        }
-    }
-}
-
-// 加载现有的 Cookie 配置
 async function loadCookieConfig() {
     try {
         const response = await fetch('/cookie-config');
@@ -615,7 +573,6 @@ async function loadCookieConfig() {
     }
 }
 
-// 保存 Cookie 配置
 async function saveCookieConfig() {
     const payload = {
         baidu_cookie: baiduCookieInput.value.trim(),
@@ -632,27 +589,151 @@ async function saveCookieConfig() {
 
         if (data.success) {
             showToast('Cookie配置保存成功', 'success');
-            // 关闭模态框 (使用 Bootstrap 原生方法)
             const modalInstance = bootstrap.Modal.getInstance(cookieConfigModal);
             if (modalInstance) modalInstance.hide();
         } else {
-            showToast('保存失败: ' + data.message, 'error');
+            showToast('保存失败: ' + data.message, 'danger');
         }
     } catch (error) {
-        showToast('请求失败，请检查网络', 'error');
+        showToast('请求失败，请检查网络', 'danger');
     }
 }
 
+async function uploadQrCode() {
+    const fileInput = document.getElementById('qrCodeFile');
+    if (!fileInput) {
+        showToast('找不到文件输入元素', 'error');
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    if (!file) {
+        showToast('请选择二维码图片', 'danger');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('qr_code', file);
+    
+    try {
+        const response = await fetch('/upload-qr-code', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('二维码上传成功', 'success');
+            const currentQrCodeImg = document.getElementById('qrConfigImage');
+            if (currentQrCodeImg) {
+                currentQrCodeImg.src = '/get-qr-code?' + new Date().getTime();
+            }
+            fileInput.value = '';
+            const previewDiv = document.getElementById('qrCodePreview');
+            if (previewDiv) {
+                previewDiv.innerHTML = '<small class="text-muted">选择文件后预览</small>';
+            }
+            const modalElement = document.getElementById('qrCodeConfigModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalElement);
+            if (modalInstance) modalInstance.hide();
+        } else {
+            showToast('上传失败: ' + data.message, 'danger');
+        }
+    } catch (error) {
+        console.error('上传二维码失败:', error);
+        showToast('请求失败，请检查网络', 'danger');
+    }
+}
+
+async function loadQuotaInfo() {
+    const quotaCard = document.getElementById('quotaInfoCard');
+    const quotaTotal = document.getElementById('quotaTotal');
+    const quotaUsed = document.getElementById('quotaUsed');
+    const quotaFree = document.getElementById('quotaFree');
+    const quotaPercent = document.getElementById('quotaPercent');
+    const progressBar = document.getElementById('quotaProgressBar');
+    
+    try {
+        const response = await fetch('/api/quota');
+        const data = await response.json();
+        
+        if (data.success) {
+            const quota = data.data;
+            quotaTotal.textContent = quota.total_gb + ' GB';
+            quotaUsed.textContent = quota.used_gb + ' GB';
+            quotaFree.textContent = quota.free_gb + ' GB';
+            quotaPercent.textContent = quota.used_percent + '%';
+            
+            progressBar.style.width = quota.used_percent + '%';
+            progressBar.textContent = quota.used_percent + '%';
+            
+            if (quota.used_percent >= 90) {
+                progressBar.className = 'progress-bar bg-danger';
+                quotaPercent.className = 'h5 text-danger';
+            } else if (quota.used_percent >= 80) {
+                progressBar.className = 'progress-bar bg-warning';
+                quotaPercent.className = 'h5 text-warning';
+            } else {
+                progressBar.className = 'progress-bar bg-success';
+                quotaPercent.className = 'h5 text-success';
+            }
+            
+            quotaCard.classList.remove('d-none');
+            showToast('空间信息加载成功', 'success');
+        } else {
+            showToast('获取空间信息失败: ' + data.message, 'danger');
+        }
+    } catch (error) {
+        console.error('加载空间信息失败:', error);
+        showToast('请求失败，请检查网络', 'danger');
+    }
+}
+
+async function cleanOldFiles() {
+    if (!confirm('确定要清理旧文件吗？这将删除网盘中最旧的文件以释放空间。')) {
+        return;
+    }
+    
+    const cleanBtn = document.getElementById('cleanFilesBtn');
+    const originalText = cleanBtn.innerHTML;
+    cleanBtn.disabled = true;
+    cleanBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 清理中...';
+    
+    try {
+        const response = await fetch('/api/clean', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ threshold: 80, count: 20 })
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(data.message, 'success');
+            loadQuotaInfo();
+        } else {
+            showToast('清理失败: ' + data.message, 'danger');
+        }
+    } catch (error) {
+        console.error('清理文件失败:', error);
+        showToast('请求失败，请检查网络', 'danger');
+    } finally {
+        cleanBtn.disabled = false;
+        cleanBtn.innerHTML = originalText;
+    }
+}
 
 // ==========================================
-// 8. 初始化入口 (统一)
+// 7. 初始化入口
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 初始加载
+    const qrConfigImg = document.getElementById('qrConfigImage');
+    if (qrConfigImg) {
+        qrConfigImg.src = '/get-qr-code';
+    }
+    
     loadResources();
 
-    // 绑定分页点击事件 (委托)
     if (pagination) {
         pagination.addEventListener('click', (e) => {
             e.preventDefault();
@@ -667,7 +748,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 绑定搜索
     if (searchInput) {
         let timeout = null;
         searchInput.addEventListener('input', () => {
@@ -675,24 +755,133 @@ document.addEventListener('DOMContentLoaded', () => {
             timeout = setTimeout(() => {
                 currentPage = 1;
                 loadResources();
-            }, 300); // 防抖
+            }, 300);
         });
     }
 
-    // 绑定 Cookie 模态框显示时加载数据
     if (cookieConfigModal) {
         cookieConfigModal.addEventListener('show.bs.modal', loadCookieConfig);
     }
 
-    // 绑定保存按钮
     if (saveCookieConfigBtn) {
         saveCookieConfigBtn.addEventListener('click', saveCookieConfig);
     }
 
-    // 绑定按钮事件
-    if (saveResourceBtn) saveResourceBtn.addEventListener('click', saveResource);
-    if (updateResourceBtn) updateResourceBtn.addEventListener('click', updateResource);
-    if (batchSaveResourceBtn) batchSaveResourceBtn.addEventListener('click', batchSaveResources);
-    if (exportCurrentPageBtn) exportCurrentPageBtn.addEventListener('click', exportCurrentPage);
-    if (exportAllPagesBtn) exportAllPagesBtn.addEventListener('click', exportAllPages);
+    const qrCodeConfigModal = document.getElementById('qrCodeConfigModal');
+    if (qrCodeConfigModal) {
+        qrCodeConfigModal.addEventListener('show.bs.modal', () => {
+            const qrConfigImg = document.getElementById('qrConfigImage');
+            if (qrConfigImg) {
+                qrConfigImg.src = '/get-qr-code?' + new Date().getTime();
+            }
+            const previewDiv = document.getElementById('qrCodePreview');
+            if (previewDiv) {
+                previewDiv.innerHTML = '<small class="text-muted">选择文件后预览</small>';
+            }
+            const fileInput = document.getElementById('qrCodeFile');
+            if (fileInput) {
+                fileInput.value = '';
+            }
+        });
+    }
+    
+    const uploadQrCodeBtn = document.getElementById('uploadQrCodeBtn');
+    if (uploadQrCodeBtn) {
+        uploadQrCodeBtn.addEventListener('click', uploadQrCode);
+    }
+
+    if (saveResourceBtn) {
+        saveResourceBtn.addEventListener('click', saveResource);
+    }
+    
+    if (updateResourceBtn) {
+        updateResourceBtn.addEventListener('click', updateResource);
+    }
+    
+    if (batchSaveResourceBtn) {
+        batchSaveResourceBtn.addEventListener('click', batchSaveResources);
+    }
+
+    // 采集电影数据相关
+    const startCrawlBtn = document.getElementById('startCrawlBtn');
+    if (startCrawlBtn) {
+        startCrawlBtn.addEventListener('click', startCrawlMovies);
+    }
 });
+
+// 开始采集电影数据
+async function startCrawlMovies() {
+    const category = document.getElementById('crawlCategory').value;
+    const pages = parseInt(document.getElementById('crawlPages').value);
+    
+    const startCrawlBtn = document.getElementById('startCrawlBtn');
+    const crawlProgress = document.getElementById('crawlProgress');
+    const crawlStatus = document.getElementById('crawlStatus');
+    const crawlProgressBar = document.getElementById('crawlProgressBar');
+    const crawlResult = document.getElementById('crawlResult');
+    const crawlResultText = document.getElementById('crawlResultText');
+    
+    // 显示进度条
+    if (crawlProgress) {
+        crawlProgress.classList.remove('d-none');
+    }
+    if (crawlResult) {
+        crawlResult.classList.add('d-none');
+    }
+    
+    // 禁用按钮
+    if (startCrawlBtn) {
+        startCrawlBtn.disabled = true;
+        startCrawlBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 采集ing...';
+    }
+    
+    try {
+        let response, data;
+        
+        // 根据分类选择不同的API端点
+        if (category === '热门榜') {
+            response = await fetch(`/api/movies/crawl/hot`);
+        } else if (category === '新上映') {
+            response = await fetch(`/api/movies/crawl/new`);
+        } else {
+            response = await fetch(`/api/movies/crawl?category=${encodeURIComponent(category)}&pages=${pages}`);
+        }
+        
+        data = await response.json();
+        
+        if (data.code === 0) {
+            // 隐藏加载状态，显示成功结果
+            if (crawlProgress) {
+                crawlProgress.classList.add('d-none');
+            }
+            if (crawlResult) {
+                crawlResult.classList.remove('d-none');
+            }
+            if (crawlResultText) {
+                const count = data.data?.count || data.data?.saved_count || 0;
+                crawlResultText.textContent = `采集完成，共保存 ${count} 条 ${category} 数据`;
+            }
+            const count = data.data?.count || data.data?.saved_count || 0;
+            showToast(`采集 ${category} 数据成功，共保存 ${count} 条`, 'success');
+        } else {
+            // 隐藏加载状态，显示失败结果
+            if (crawlProgress) {
+                crawlProgress.classList.add('d-none');
+            }
+            showToast(`采集失败: ${data.message}`, 'danger');
+        }
+    } catch (error) {
+        // 隐藏加载状态，显示错误结果
+        if (crawlProgress) {
+            crawlProgress.classList.add('d-none');
+        }
+        console.error('采集电影数据失败:', error);
+        showToast('采集请求失败，请检查网络', 'danger');
+    } finally {
+        // 恢复按钮状态
+        if (startCrawlBtn) {
+            startCrawlBtn.disabled = false;
+            startCrawlBtn.innerHTML = '开始采集';
+        }
+    }
+}

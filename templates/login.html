@@ -2,55 +2,81 @@
 {% set active_page = 'login' %}
 
 {% block head %}
-    <title>小青搜剧 - 登录页面</title>
+    <title>桃白白影视 - 登录页面</title>
     <link rel="shortcut icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
     <style>
         .login-container {
-            max-width: 400px;
-            margin: 50px auto;
-            padding: 30px;
+            max-width: 420px;
+            margin: 60px auto;
+            padding: 32px;
             background-color: #ffffff;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            border-radius: 20px;
+            box-shadow: 0 4px 20px -4px rgba(15, 148, 136, 0.15);
+            border: 1px solid rgba(15, 148, 136, 0.1);
         }
         .login-title {
             text-align: center;
-            margin-bottom: 30px;
-            color: #F9A825;
+            margin-bottom: 28px;
+            color: #0d9488;
+            font-weight: 800;
+            font-size: 24px;
+            letter-spacing: -0.02em;
         }
         .form-group {
             margin-bottom: 20px;
         }
         .form-group label {
             display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 14px;
         }
         .form-group input {
             width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
+            padding: 12px 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 15px;
+            background: #fafafa;
+            transition: all 0.2s ease;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #0d9488;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
         }
         .btn-login {
             width: 100%;
-            padding: 10px;
-            background-color: #FFB300;
+            padding: 14px;
+            background: linear-gradient(135deg, #0d9488 0%, #f59e0b 100%);
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 12px;
             font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(15, 148, 136, 0.2);
         }
         .btn-login:hover {
-            background-color: #C78C2B;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(15, 148, 136, 0.3);
+            filter: brightness(1.05);
+        }
+        .btn-login:active {
+            transform: translateY(0);
         }
         .error-message {
-            color: red;
+            color: #dc2626;
             text-align: center;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
+            padding: 12px;
+            background: rgba(220, 38, 38, 0.08);
+            border-radius: 10px;
+            font-weight: 500;
         }
     </style>
 {% endblock %}
@@ -66,11 +92,11 @@
                 <form method="POST">
                     <div class="form-group">
                         <label for="username">账号</label>
-                        <input type="text" id="username" name="username" required>
+                        <input type="text" id="username" name="username" autocomplete="username" required>
                     </div>
                     <div class="form-group">
                         <label for="password">密码</label>
-                        <input type="password" id="password" name="password" required>
+                        <input type="password" id="password" name="password" autocomplete="current-password" required>
                     </div>
                     <button type="submit" class="btn-login">登录</button>
                 </form>

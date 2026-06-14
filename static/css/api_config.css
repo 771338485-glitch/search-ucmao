@@ -98,6 +98,92 @@
             table th:nth-child(9) { width: 25%; }
         }
 
+        /* 手机端适配 */
+        @media (max-width: 768px) {
+            .container-fluid-custom {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+            
+            h2 {
+                font-size: 1.25rem;
+                margin-bottom: 1rem;
+            }
+            
+            .d-flex.justify-content-between {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .d-flex.justify-content-between > div {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+            
+            .btn-sm {
+                font-size: 0.75rem;
+                padding: 0.25rem 0.5rem;
+                margin-right: 3px;
+            }
+            
+            table {
+                font-size: 0.75rem;
+            }
+            
+            table th,
+            table td {
+                padding: 6px 4px;
+            }
+            
+            /* 隐藏更多列 */
+            table th:nth-child(1),
+            table td:nth-child(1),
+            table th:nth-child(5),
+            table td:nth-child(5),
+            table th:nth-child(6),
+            table td:nth-child(6) {
+                display: none;
+            }
+            
+            table th:nth-child(3) { width: 25%; }
+            table th:nth-child(4) { width: 45%; }
+            table th:nth-child(9) { width: 30%; }
+            
+            .modal-dialog {
+                margin: 5px;
+                max-width: calc(100% - 10px);
+            }
+            
+            .modal-body {
+                padding: 10px;
+            }
+            
+            .modal-body .row {
+                flex-direction: column;
+            }
+            
+            .modal-body .col-md-3,
+            .modal-body .col-md-6,
+            .modal-body .col-md-12 {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            
+            fieldset {
+                padding: 10px;
+            }
+            
+            legend {
+                font-size: 0.9rem;
+                margin-left: 5px;
+            }
+            
+            .form-control {
+                font-size: 0.85rem;
+            }
+        }
+
         /* Toast 容器样式 */
         #toastContainer {
             position: fixed;
@@ -364,4 +450,43 @@
         /* 新增：代码输入框行数调整 */
         .form-group.code-input textarea {
             rows: 3;
+        }
+
+        /* 邮件通知配置区域样式 */
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, #007bff, #0056b3) !important;
+        }
+
+        .card {
+            border: 1px solid #e9ecef !important;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.1);
+        }
+
+        .fw-medium {
+            font-weight: 500;
+        }
+
+        /* 响应式邮件配置区域 */
+        @media (max-width: 768px) {
+            .email-config-section {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+
+            .card-body {
+                padding: 1rem !important;
+            }
+
+            .d-flex.gap-3 {
+                flex-direction: column;
+                gap: 0.75rem !important;
+            }
+
+            .btn {
+                width: 100% !important;
+            }
         }

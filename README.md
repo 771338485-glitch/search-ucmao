@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="static/images/search_logo.png" width="120" height="auto" alt="小青搜剧 Logo">
+<img src="static/images/search_logo.png" width="120" height="auto" alt="桃白白影视 Logo">
 
-# 🚀 小青搜剧 (search-ucmao)
+# 🚀 桃白白影视 (search-ucmao)
 
 **全能网盘推广与自动化变现管理系统**
 
@@ -15,7 +15,7 @@
   <a href="https://github.com/ucmao/search-ucmao/issues">提交Bug</a>
 </p>
 
-小青搜剧是一款专为网盘推广员、资源站长打造的**自动化收益工具**。<br>通过“资源聚合 -> 自动转存 -> 链接洗白 -> 裂变分发”的闭环，助你实现拉新与转存收益最大化。
+桃白白影视是一款专为网盘推广员、资源站长打造的**自动化收益工具**。<br>通过"资源聚合 -> 自动转存 -> 链接洗白 -> 裂变分发"的闭环，助你实现拉新与转存收益最大化。
 
 </div>
 
@@ -196,6 +196,6 @@ search-ucmao/
 1. 本项目基于 **[MIT LICENSE](LICENSE)** 协议开源。
 2. **免责声明**：本工具仅供技术交流学习，严禁用于任何非法目的。因使用本工具造成的任何账号封禁或法律风险，均与原作者无关。
 
-**小青搜剧** - 让每一份网盘资源都为你创造价值。
+**桃白白影视** - 让每一份网盘资源都为你创造价值。
 
 ---

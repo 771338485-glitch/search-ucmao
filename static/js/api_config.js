@@ -68,16 +68,26 @@
         async function testDraftApi(prefix) {
             const testButtonId = (prefix === 'api') ? 'apiTestButton' : 'editApiTestButton';
             const testButton = document.getElementById(testButtonId);
-            if (testButton) testButton.disabled = true;
+            const originalButtonText = testButton ? testButton.innerHTML : '';
+            
+            if (testButton) {
+                testButton.disabled = true;
+                testButton.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> 测试中...';
+            }
 
             const api = getApiDataFromModal(prefix);
             if (!api) {
-                if (testButton) testButton.disabled = false;
+                if (testButton) {
+                    testButton.disabled = false;
+                    testButton.innerHTML = originalButtonText;
+                }
                 return;
             }
             const apiName = api.name;
 
             try {
+                showToast(`正在测试 API: ${apiName}...`, 'info');
+                
                 const response = await fetch('/api/test', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -88,23 +98,30 @@
                     const errorText = await response.text();
                     try {
                         const errorJson = JSON.parse(errorText);
-                        throw new Error(errorJson.error || `HTTP error! status: ${response.status}`);
+                        throw new Error(errorJson.error || `HTTP错误！状态: ${response.status}`);
                     } catch {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        throw new Error(`HTTP错误！状态: ${response.status}`);
                     }
                 }
                 const data = await response.json();
 
                 if (data.status) {
-                    showToast(`API ${apiName} 测试成功！耗时 ${data.response_time_ms}ms`, 'success');
+                    showToast(`✅ API ${apiName} 测试成功！耗时 ${data.response_time_ms}ms，配置正确！`, 'success');
                 } else {
-                    showToast(`API ${apiName} 测试失败/异常！请检查配置。`, 'danger');
+                    showToast(`⚠️ API ${apiName} 测试失败！请检查配置。可能原因：接口无法访问、响应匹配失败等`, 'danger');
                 }
 
             } catch (error) {
-                showToast(`API ${apiName} 测试失败！错误：${error.message}`, 'danger');
+                let errorMessage = error.message;
+                if (errorMessage.includes('Failed to fetch')) {
+                    errorMessage = '网络连接失败，请检查网络或接口地址';
+                }
+                showToast(`❌ API ${apiName} 测试失败！${errorMessage}`, 'danger');
             } finally {
-                if (testButton) testButton.disabled = false;
+                if (testButton) {
+                    testButton.disabled = false;
+                    testButton.innerHTML = originalButtonText;
+                }
             }
         }
 
@@ -172,12 +189,14 @@
                     <td>${requestDisplay}</td>
                     <td>${responseDisplay}</td>
                     <td class="action-buttons d-flex justify-content-center align-items-center">
-                        <button class="btn btn-sm ${toggleBtnClass}" title="${api.status === false && !api.is_enabled ? 'API异常，请先测试修复后再启用' : '点击切换状态'}"
+                        <button class="btn btn-sm ${toggleBtnClass} d-flex align-items-center gap-2" title="${api.status === false && !api.is_enabled ? 'API异常，请先测试修复后再启用' : '点击切换状态'}"
                                 onclick="toggleEnabled(${api.id}, ${nextAction})" ${isToggleDisabled}>
-                            <i class="fas ${toggleBtnIcon}"></i> ${toggleBtnText}
+                            <i class="fas ${toggleBtnIcon}"></i>
+                            <span>${toggleBtnText}</span>
                         </button>
-                        <button class="btn btn-sm btn-info text-white" onclick="testApi(${api.id})" title="测试单个 API" ${isTestDisabled}>
-                            <i class="fas fa-play"></i> 测试
+                        <button class="btn btn-sm btn-info text-white d-flex align-items-center gap-2" onclick="testApi(${api.id})" title="测试单个 API" ${isTestDisabled}>
+                            <i class="fas fa-play"></i>
+                            <span>测试</span>
                         </button>
                         <div class="dropdown">
                             <button class="btn btn-sm btn-secondary dropdown-toggle" type="button"
@@ -455,10 +474,21 @@
 
         // 测试 API (单个)
         async function testApi(apiId) {
-            const { api } = getApiConfigById(apiId);
+            const { api, index } = getApiConfigById(apiId);
             if (!api) return;
 
+            const testButtonSelector = `#apiTableBody tr:nth-child(${index + 1}) .btn-info`;
+            const testButton = document.querySelector(testButtonSelector);
+            const originalButtonText = testButton ? testButton.innerHTML : '';
+
+            if (testButton) {
+                testButton.disabled = true;
+                testButton.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> 测试中...';
+            }
+
             try {
+                showToast(`正在测试 API: ${api.name}...`, 'info');
+                
                 const apiWithId = { ...api, id: apiId };
                 const response = await fetch('/api/test', {
                     method: 'POST',
@@ -470,23 +500,32 @@
                     const errorText = await response.text();
                     try {
                         const errorJson = JSON.parse(errorText);
-                        throw new Error(errorJson.error || `HTTP error! status: ${response.status}`);
+                        throw new Error(errorJson.error || `HTTP错误！状态: ${response.status}`);
                     } catch {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        throw new Error(`HTTP错误！状态: ${response.status}`);
                     }
                 }
 
                 const data = await response.json();
                 if (data.status) {
-                    showToast(`API ${api.name} 测试成功！耗时 ${data.response_time_ms}ms`, 'success');
+                    showToast(`✅ API ${api.name} 测试成功！耗时 ${data.response_time_ms}ms，状态已更新为正常`, 'success');
                 } else {
-                    showToast(`API ${api.name} 测试完成，状态异常，已自动禁止。`, 'warning');
+                    showToast(`⚠️ API ${api.name} 测试失败！状态异常，已自动禁用。可能原因：接口无法访问、响应匹配失败等`, 'warning');
                 }
 
                 loadApiConfigs();
             } catch (error) {
-                showToast(`API ${api.name} 测试失败！错误：${error.message}`, 'danger');
+                let errorMessage = error.message;
+                if (errorMessage.includes('Failed to fetch')) {
+                    errorMessage = '网络连接失败，请检查网络或接口地址';
+                }
+                showToast(`❌ API ${api.name} 测试失败！${errorMessage}`, 'danger');
                 loadApiConfigs();
+            } finally {
+                if (testButton) {
+                    testButton.disabled = false;
+                    testButton.innerHTML = originalButtonText;
+                }
             }
         }
 
@@ -551,3 +590,324 @@
 
         // 初始化加载数据
         loadApiConfigs();
+
+        // ============================================
+        // 邮件通知配置功能
+        // ============================================
+
+        // 邮箱格式验证
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        // 显示状态消息
+        function showEmailStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('emailStatus');
+            if (!statusDiv) return;
+
+            let bgColor = '#eff6ff';
+            let textColor = '#1e40af';
+            let borderColor = '#93c5fd';
+            if (type === 'success') {
+                bgColor = '#f0fdf4';
+                textColor = '#166534';
+                borderColor = '#86efac';
+            }
+            if (type === 'error') {
+                bgColor = '#fef2f2';
+                textColor = '#991b1b';
+                borderColor = '#fca5a5';
+            }
+            if (type === 'warning') {
+                bgColor = '#fffbeb';
+                textColor = '#92400e';
+                borderColor = '#fcd34d';
+            }
+
+            statusDiv.innerHTML = `
+                <div style="padding: 12px 16px; background-color: ${bgColor}; color: ${textColor}; border: 1px solid ${borderColor}; border-radius: 4px; position: relative;">
+                    ${message}
+                    <button type="button" onclick="this.parentElement.remove()" style="position: absolute; top: 8px; right: 8px; background: none; border: none; font-size: 18px; cursor: pointer; color: ${textColor};">&times;</button>
+                </div>
+            `;
+
+            // 5秒后自动关闭
+            setTimeout(() => {
+                const alert = statusDiv.querySelector('div');
+                if (alert) {
+                    alert.remove();
+                }
+            }, 5000);
+        }
+
+        // 加载邮件配置
+        function loadEmailConfig() {
+            fetch('/api/email/config')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.config) {
+                        const config = data.config;
+
+                        if (config.notification_email) {
+                            const el = document.getElementById('emailNotifyTo');
+                            if (el) el.value = config.notification_email;
+                        }
+                        if (config.smtp_server) {
+                            const el = document.getElementById('emailSmtpServer');
+                            if (el) el.value = config.smtp_server;
+                        }
+                        if (config.smtp_port) {
+                            const el = document.getElementById('emailSmtpPort');
+                            if (el) el.value = config.smtp_port;
+                        }
+                        if (config.smtp_username) {
+                            const el = document.getElementById('emailSmtpUser');
+                            if (el) el.value = config.smtp_username;
+                        }
+                        // 密码不回显，显示占位符
+                        const passwordEl = document.getElementById('emailSmtpPassword');
+                        if (passwordEl) passwordEl.value = '******';
+                        if (config.use_tls !== undefined) {
+                            const el = document.getElementById('emailUseTls');
+                            if (el) el.checked = config.use_tls;
+                        }
+                        if (config.enabled !== undefined) {
+                            const el = document.getElementById('emailNotificationEnabled');
+                            if (el) el.checked = config.enabled;
+                        }
+                        if (config.visitor_stats_enabled !== undefined) {
+                            const el = document.getElementById('visitorStatsEnabled');
+                            if (el) el.checked = config.visitor_stats_enabled;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('加载邮件配置失败:', error);
+                });
+        }
+
+        // 保存邮件配置
+        function saveEmailConfig() {
+            const notificationEmailEl = document.getElementById('emailNotifyTo');
+            const smtpServerEl = document.getElementById('emailSmtpServer');
+            const smtpPortEl = document.getElementById('emailSmtpPort');
+            const smtpUsernameEl = document.getElementById('emailSmtpUser');
+            const smtpPasswordEl = document.getElementById('emailSmtpPassword');
+            const useTlsEl = document.getElementById('emailUseTls');
+            const emailEnabledEl = document.getElementById('emailNotificationEnabled');
+            const visitorStatsEnabledEl = document.getElementById('visitorStatsEnabled');
+
+            const notificationEmail = notificationEmailEl ? notificationEmailEl.value.trim() : '';
+            const smtpServer = smtpServerEl ? smtpServerEl.value.trim() : '';
+            const smtpPort = smtpPortEl ? (parseInt(smtpPortEl.value) || 587) : 587;
+            const smtpUsername = smtpUsernameEl ? smtpUsernameEl.value.trim() : '';
+            const smtpPassword = smtpPasswordEl ? smtpPasswordEl.value : '';
+            const useTls = useTlsEl ? useTlsEl.checked : true;
+            const emailEnabled = emailEnabledEl ? emailEnabledEl.checked : false;
+            const visitorStatsEnabled = visitorStatsEnabledEl ? visitorStatsEnabledEl.checked : false;
+
+            const config = {
+                notification_email: notificationEmail,
+                smtp_server: smtpServer,
+                smtp_port: smtpPort,
+                smtp_username: smtpUsername,
+                use_tls: useTls,
+                enabled: emailEnabled,
+                visitor_stats_enabled: visitorStatsEnabled
+            };
+
+            // 只有当密码不是占位符且不为空时，才发送密码
+            if (smtpPassword && smtpPassword !== '******') {
+                config.smtp_password = smtpPassword;
+            }
+
+            // 显示加载状态
+            const saveBtn = document.getElementById('saveEmailConfigBtn');
+            let originalText = '';
+            if (saveBtn) {
+                originalText = saveBtn.innerHTML;
+                saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>保存中...';
+                saveBtn.disabled = true;
+            }
+
+            fetch('/api/email/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showEmailStatus(data.message, 'success');
+                    // 重新设置密码框为占位符
+                    if (smtpPasswordEl) smtpPasswordEl.value = '******';
+                } else {
+                    showEmailStatus(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('保存邮件配置失败:', error);
+                showEmailStatus('保存失败: ' + error.message, 'error');
+            })
+            .finally(() => {
+                if (saveBtn) {
+                    saveBtn.innerHTML = originalText;
+                    saveBtn.disabled = false;
+                }
+            });
+        }
+
+        // 发送测试邮件
+        function sendTestEmail() {
+            // 显示加载状态
+            const testBtn = document.getElementById('testEmailBtn');
+            let originalText = '';
+            if (testBtn) {
+                originalText = testBtn.innerHTML;
+                testBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>发送中...';
+                testBtn.disabled = true;
+            }
+
+            fetch('/api/email/test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showEmailStatus(data.message, 'success');
+                } else {
+                    showEmailStatus(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('发送测试邮件失败:', error);
+                showEmailStatus('发送失败: ' + error.message, 'error');
+            })
+            .finally(() => {
+                if (testBtn) {
+                    testBtn.innerHTML = originalText;
+                    testBtn.disabled = false;
+                }
+            });
+        }
+
+        // 发送访客统计测试邮件
+        function sendVisitorStatsTestEmail() {
+            // 显示加载状态
+            const testBtn = document.getElementById('testVisitorStatsBtn');
+            let originalText = '';
+            if (testBtn) {
+                originalText = testBtn.innerHTML;
+                testBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>发送中...';
+                testBtn.disabled = true;
+            }
+
+            fetch('/api/email/test-visitor-stats', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showEmailStatus(data.message, 'success');
+                } else {
+                    showEmailStatus(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('发送访客统计测试邮件失败:', error);
+                showEmailStatus('发送失败: ' + error.message, 'error');
+            })
+            .finally(() => {
+                if (testBtn) {
+                    testBtn.innerHTML = originalText;
+                    testBtn.disabled = false;
+                }
+            });
+        }
+
+        // 绑定邮件配置事件
+        function bindEmailConfigEvents() {
+            // 邮箱输入验证
+            const emailInput = document.getElementById('emailNotifyTo');
+            if (emailInput) {
+                emailInput.addEventListener('input', function() {
+                    if (this.value && !isValidEmail(this.value)) {
+                        this.classList.add('is-invalid');
+                    } else {
+                        this.classList.remove('is-invalid');
+                    }
+                });
+            }
+        }
+
+        // 快速配置邮箱
+        function quickConfigEmail(type) {
+            if (type === 'qq') {
+                const smtpServerEl = document.getElementById('emailSmtpServer');
+                const smtpPortEl = document.getElementById('emailSmtpPort');
+                const useTlsEl = document.getElementById('emailUseTls');
+                if (smtpServerEl) smtpServerEl.value = 'smtp.qq.com';
+                if (smtpPortEl) smtpPortEl.value = '587';
+                if (useTlsEl) useTlsEl.checked = true;
+                showToast('已填充QQ邮箱配置，请填写邮箱和授权码', 'info');
+            } else if (type === '163') {
+                const smtpServerEl = document.getElementById('emailSmtpServer');
+                const smtpPortEl = document.getElementById('emailSmtpPort');
+                const useTlsEl = document.getElementById('emailUseTls');
+                if (smtpServerEl) smtpServerEl.value = 'smtp.163.com';
+                if (smtpPortEl) smtpPortEl.value = '465';
+                if (useTlsEl) useTlsEl.checked = false;
+                showToast('已填充163邮箱配置，请填写邮箱和授权码', 'info');
+            } else if (type === 'gmail') {
+                const smtpServerEl = document.getElementById('emailSmtpServer');
+                const smtpPortEl = document.getElementById('emailSmtpPort');
+                const useTlsEl = document.getElementById('emailUseTls');
+                if (smtpServerEl) smtpServerEl.value = 'smtp.gmail.com';
+                if (smtpPortEl) smtpPortEl.value = '587';
+                if (useTlsEl) useTlsEl.checked = true;
+                showToast('已填充Gmail配置，请填写邮箱和应用专用密码', 'info');
+            }
+        }
+
+        // 快速配置QQ邮箱
+        function quickConfigQQ() {
+            quickConfigEmail('qq');
+        }
+
+        // 快速配置163邮箱
+        function quickConfig163() {
+            quickConfigEmail('163');
+        }
+
+        // 快速配置Gmail
+        function quickConfigGmail() {
+            quickConfigEmail('gmail');
+        }
+
+        // 切换邮件配置显示
+        function toggleEmailConfig() {
+            const section = document.getElementById('emailConfigSection');
+            
+            if (section) {
+                // 直接切换显示/隐藏
+                if (section.style.display === 'block') {
+                    section.style.display = 'none';
+                } else {
+                    section.style.display = 'block';
+                    loadEmailConfig();
+                }
+            }
+        }
+
+        // 初始化邮件配置
+        bindEmailConfigEvents();
+        loadEmailConfig();

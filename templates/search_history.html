@@ -1,0 +1,340 @@
+{% extends "_layout.html" %}
+{% set active_page = 'resources' %}
+
+{% block head %}
+    {{ super() }}
+    <title>桃白白影视 - 客户搜索词</title>
+    <link rel="shortcut icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+{% endblock %}
+
+{% block content %}
+    <div class="container-fluid-custom pt-4">
+        <h2 class="text-center mb-4">客户搜索词记录</h2>
+        
+        <!-- 功能按钮 -->
+        <div class="row mb-3 justify-content-center">
+            <div class="col-auto">
+                <button class="btn btn-primary btn-sm" id="refreshBtn">
+                    <i class="fas fa-refresh"></i> 刷新
+                </button>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-danger btn-sm" id="cleanupBtn">
+                    <i class="fas fa-trash"></i> 清理30天前数据
+                </button>
+            </div>
+            <div class="col-auto">
+                <a href="/hot_resource" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-arrow-left"></i> 返回热门资源
+                </a>
+            </div>
+        </div>
+
+        <!-- 访客统计 -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-users"></i> 访客统计</h5>
+                <div class="row mt-3" id="visitorStatsContainer">
+                    <div class="col-12 text-center text-muted">加载中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 搜索关键词统计 -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-chart-bar"></i> 热门搜索词（Top 20）</h5>
+                <div id="statsContainer" class="mt-3">
+                    <div class="text-center text-muted">加载中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 搜索历史记录 -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-list"></i> 搜索历史记录</h5>
+                <div class="d-flex justify-content-between mb-3">
+                    <span id="totalCount" class="text-muted"></span>
+                </div>
+                <div class="table-container">
+                    <table class="table table-bordered table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 80px;">ID</th>
+                                <th style="width: 150px;">IP 地址</th>
+                                <th>搜索关键词</th>
+                                <th style="width: 180px;">搜索时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 分页 -->
+                <nav id="paginationNav" class="mt-3 d-none">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item" id="prevPage">
+                            <a class="page-link" href="#" tabindex="-1">上一页</a>
+                        </li>
+                        <li class="page-item active" id="currentPageNum">
+                            <a class="page-link" href="#">1</a>
+                        </li>
+                        <li class="page-item" id="nextPage">
+                            <a class="page-link" href="#">下一页</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        const itemsPerPage = 50;
+        let totalCount = 0;
+
+        // HTML 转义函数，防止 XSS 攻击
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadVisitorStats();
+            loadStats();
+            loadHistory();
+            
+            document.getElementById('refreshBtn').addEventListener('click', function() {
+                loadVisitorStats();
+                loadStats();
+                loadHistory();
+            });
+            
+            document.getElementById('cleanupBtn').addEventListener('click', function() {
+                if (confirm('确定要清理30天前的搜索历史数据吗？')) {
+                    cleanupHistory();
+                }
+            });
+            
+            document.getElementById('prevPage').addEventListener('click', function(e) {
+                e.preventDefault();
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadHistory();
+                }
+            });
+            
+            document.getElementById('nextPage').addEventListener('click', function(e) {
+                e.preventDefault();
+                const maxPage = Math.ceil(totalCount / itemsPerPage);
+                if (currentPage < maxPage) {
+                    currentPage++;
+                    loadHistory();
+                }
+            });
+        });
+
+        function loadStats() {
+            fetch('/api/search_history/stats?limit=20')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderStats(data.data);
+                    }
+                })
+                .catch(error => {
+                    console.error('加载统计失败:', error);
+                    document.getElementById('statsContainer').innerHTML = 
+                        '<div class="text-center text-danger">加载失败</div>';
+                });
+        }
+
+        function renderStats(stats) {
+            const container = document.getElementById('statsContainer');
+            
+            if (stats.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted">暂无数据</div>';
+                return;
+            }
+            
+            const maxCount = stats[0].count;
+            
+            let html = '<div class="row">';
+            stats.forEach((item, index) => {
+                const percentage = (item.count / maxCount * 100).toFixed(1);
+                html += `
+                    <div class="col-md-6 mb-2">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-secondary me-2" style="width: 30px;">${index + 1}</span>
+                            <div class="flex-grow-1 me-2">
+                                <div class="d-flex justify-content-between">
+                                    <span class="text-truncate" style="max-width: 200px;" title="${escapeHtml(item.search_keyword)}">${escapeHtml(item.search_keyword)}</span>
+                                    <span class="text-muted">${item.count} 次</span>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: ${percentage}%;" 
+                                         aria-valuenow="${item.count}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="${maxCount}"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+
+        function loadVisitorStats() {
+            fetch('/api/visitor/stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderVisitorStats(data.data);
+                    }
+                })
+                .catch(error => {
+                    console.error('加载访客统计失败:', error);
+                    document.getElementById('visitorStatsContainer').innerHTML = 
+                        '<div class="col-12 text-center text-danger">加载失败</div>';
+                });
+        }
+
+        function renderVisitorStats(stats) {
+            const container = document.getElementById('visitorStatsContainer');
+            
+            const items = [
+                { label: '今日访客', value: stats.today, icon: 'fa-calendar-day', color: 'bg-primary' },
+                { label: '昨日访客', value: stats.yesterday, icon: 'fa-calendar', color: 'bg-info' },
+                { label: '近7天访客', value: stats.last_7_days, icon: 'fa-calendar-week', color: 'bg-success' },
+                { label: '近30天访客', value: stats.last_30_days, icon: 'fa-calendar-alt', color: 'bg-warning' }
+            ];
+            
+            let html = '';
+            items.forEach(item => {
+                html += `
+                    <div class="col-md-3 col-6 mb-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <div class="mb-2">
+                                    <i class="fas ${item.icon} fa-2x ${item.color} text-white p-2 rounded"></i>
+                                </div>
+                                <div class="fs-2 fw-bold">${item.value}</div>
+                                <div class="text-muted small">${item.label}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function loadHistory() {
+            fetch(`/api/search_history?page=${currentPage}&limit=${itemsPerPage}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        totalCount = data.total;
+                        renderHistory(data.data);
+                        updatePagination();
+                    }
+                })
+                .catch(error => {
+                    console.error('加载搜索历史失败:', error);
+                    document.getElementById('historyTableBody').innerHTML = 
+                        '<tr><td colspan="4" class="text-center text-danger">加载失败</td></tr>';
+                });
+        }
+
+        function renderHistory(history) {
+            const tbody = document.getElementById('historyTableBody');
+            
+            if (history.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">暂无数据</td></tr>';
+                return;
+            }
+            
+            let html = '';
+            history.forEach(item => {
+                html += `
+                    <tr>
+                        <td>${item.id}</td>
+                        <td>${item.ip_address}</td>
+                        <td>${escapeHtml(item.search_keyword)}</td>
+                        <td>${item.search_time}</td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+            document.getElementById('totalCount').textContent = `共 ${totalCount} 条记录`;
+        }
+
+        function updatePagination() {
+            const nav = document.getElementById('paginationNav');
+            const maxPage = Math.ceil(totalCount / itemsPerPage);
+            
+            if (maxPage <= 1) {
+                nav.classList.add('d-none');
+                return;
+            }
+            
+            nav.classList.remove('d-none');
+            
+            const prevPage = document.getElementById('prevPage');
+            const nextPage = document.getElementById('nextPage');
+            const currentPageNum = document.getElementById('currentPageNum');
+            
+            if (currentPage <= 1) {
+                prevPage.classList.add('disabled');
+            } else {
+                prevPage.classList.remove('disabled');
+            }
+            
+            if (currentPage >= maxPage) {
+                nextPage.classList.add('disabled');
+            } else {
+                nextPage.classList.remove('disabled');
+            }
+            
+            currentPageNum.querySelector('a').textContent = currentPage;
+        }
+
+        function cleanupHistory() {
+            fetch('/api/search_history/cleanup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ days: 30 })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    currentPage = 1;
+                    loadStats();
+                    loadHistory();
+                } else {
+                    showToast('清理失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('清理失败:', error);
+                showToast('清理失败', 'error');
+            });
+        }
+
+    </script>
+{% endblock %}

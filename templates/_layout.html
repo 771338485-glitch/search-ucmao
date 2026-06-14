@@ -5,123 +5,516 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    {% block head %}{% endblock %}
-
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <!-- 同时使用CDN和本地资源，确保图标能正常显示 -->
+    <link href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
+
+    {% block head %}{% endblock %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/common.min.css', v=6) }}">
 
     <style>
-        /* ------------------------------------- */
-        /* 1. 全局美化和底部固定布局 (公共样式) */
-        /* ------------------------------------- */
+        /* 关键CSS - 首屏渲染必需 */
+        :root {
+            --primary: #0d9488;
+            --secondary: #f59e0b;
+            --primary-dark: #0f766e;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafb;
+            --bg-glass: rgba(255, 255, 255, 0.8);
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --text-tertiary: #9ca3af;
+            --border-light: #e5e7eb;
+            --border-medium: #d1d5db;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+            --transition-fast: 0.15s ease;
+            --transition-normal: 0.3s ease;
+        }
+
+        /* 深色模式变量 */
+        body.dark-mode {
+            --bg-primary: #111827;
+            --bg-secondary: #1f2937;
+            --bg-glass: rgba(31, 41, 55, 0.8);
+            --text-primary: #f9fafb;
+            --text-secondary: #d1d5db;
+            --text-tertiary: #9ca3af;
+            --border-light: #374151;
+            --border-medium: #4b5563;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.15), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+        
         body {
-            font-size: 0.9rem;
-            background-color: #f7f9fc;
+            font-size: 0.95rem;
+            background: linear-gradient(135deg, #f0fdfa 0%, #fefce8 50%, #f0fdfa 100%);
             min-width: 320px;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
-            /* 头部固定后，body需要内边距避让 */
-            padding-top: 86px;
+            padding-top: 76px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
-        /* 整体容器宽度放大到 1200px，负责居中和最大宽度 */
+        /* 深色模式背景 */
+        body.dark-mode {
+            background: linear-gradient(135deg, #111827 0%, #1f2937 50%, #111827 100%);
+        }
+
+        /* 深色模式下的卡片和容器 */
+        body.dark-mode .hero-row {
+            background: linear-gradient(145deg, rgba(15, 148, 136, 0.2) 0%, rgba(15, 148, 136, 0.1) 35%, rgba(245, 158, 11, 0.1) 70%, rgba(15, 148, 136, 0.15) 100%);
+        }
+
+        body.dark-mode .header-wrapper {
+            background: rgba(31, 41, 55, 0.92);
+            border-bottom: 1px solid rgba(15, 148, 136, 0.2);
+        }
+
+        body.dark-mode #scrollableResults {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-light);
+        }
+
+        body.dark-mode .result-item {
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        body.dark-mode .douban-section {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-light);
+        }
+
+        body.dark-mode .douban-header {
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        body.dark-mode .douban-tab {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            color: var(--text-secondary);
+        }
+
+        body.dark-mode .input-group-custom {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-mode #searchInput {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        body.dark-mode #searchInput::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        body.dark-mode .filter-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            color: var(--text-secondary);
+        }
+
+        body.dark-mode .qr-modal-content {
+            background: var(--bg-primary);
+        }
+
+        body.dark-mode .qr-modal-body {
+            color: var(--text-primary);
+        }
+
+        body.dark-mode .qr-modal-desc {
+            color: var(--text-secondary);
+        }
+
+        body.dark-mode .qr-modal-hint {
+            color: var(--text-tertiary);
+        }
+
+        body.dark-mode .qr-modal-image-wrap {
+            background: linear-gradient(135deg, rgba(15, 148, 136, 0.1) 0%, rgba(245, 158, 11, 0.08) 100%);
+            border: 1px solid rgba(15, 148, 136, 0.2);
+        }
+
+        /* 深色模式切换按钮 */
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--border-light);
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            margin-left: 10px;
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--primary);
+            background: rgba(15, 148, 136, 0.1);
+        }
+
+        .theme-toggle i {
+            font-size: 1rem;
+            color: var(--text-secondary);
+        }
+
+        body.dark-mode .theme-toggle i {
+            color: var(--text-primary);
+        }
+
+        /* 搜索按钮优化 */
+        #searchButton {
+            transition: all var(--transition-normal);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #searchButton::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.6s ease;
+        }
+
+        #searchButton:hover::before {
+            left: 100%;
+        }
+
+        #searchButton:hover {
+            filter: brightness(1.05);
+            box-shadow: 0 4px 12px rgba(15, 148, 136, 0.3);
+            transform: translateY(-2px);
+        }
+
+        #searchButton:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 6px rgba(15, 148, 136, 0.3);
+        }
+
+        /* 下拉菜单动画 */
+        .dropdown-menu {
+            animation: dropdownFadeIn 0.2s ease-out forwards;
+            transform-origin: top right;
+        }
+
+        @keyframes dropdownFadeIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* 按钮悬停效果 */
+        .top-right-nav .btn {
+            transition: all var(--transition-normal);
+            position: relative;
+            overflow: hidden;
+            border-radius: 999px;
+            margin: 0 5px;
+            padding: 8px 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .top-right-nav .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(15, 148, 136, 0.2);
+        }
+
+        .top-right-nav .btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 6px rgba(15, 148, 136, 0.2);
+        }
+
+        /* 顶部导航按钮样式 */
+        .top-right-nav .btn {
+            border-radius: 999px !important;
+            padding: 8px 16px !important;
+            font-weight: 600 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            font-size: 0.9rem !important;
+            transition: all var(--transition-normal) !important;
+            margin: 0 5px !important;
+        }
+
+        .top-right-nav .btn i {
+            font-size: 1rem !important;
+        }
+
+        .top-right-nav .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%) !important;
+            border: none !important;
+            color: white !important;
+            box-shadow: 0 2px 8px rgba(15, 148, 136, 0.25) !important;
+        }
+
+        .top-right-nav .btn-primary:hover {
+            filter: brightness(1.05) !important;
+            box-shadow: 0 4px 12px rgba(15, 148, 136, 0.35) !important;
+            transform: translateY(-2px) !important;
+        }
+
+        .top-right-nav .btn-outline-secondary {
+            background: white !important;
+            border: 1px solid var(--border-light) !important;
+            color: var(--text-secondary) !important;
+        }
+
+        .top-right-nav .btn-outline-secondary:hover {
+            background: rgba(15, 148, 136, 0.05) !important;
+            border-color: var(--primary) !important;
+            color: var(--primary) !important;
+            transform: translateY(-2px) !important;
+        }
+
+        /* 深色模式下的按钮样式 */
+        body.dark-mode .top-right-nav .btn-outline-secondary {
+            background: var(--bg-secondary) !important;
+            border: 1px solid var(--border-light) !important;
+            color: var(--text-secondary) !important;
+        }
+
+        body.dark-mode .top-right-nav .btn-outline-secondary:hover {
+            background: rgba(15, 148, 136, 0.1) !important;
+            border-color: var(--primary) !important;
+            color: var(--primary) !important;
+        }
+
+        /* 平滑滚动 */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* 结果项悬停效果 */
+        .result-item {
+            transition: all var(--transition-normal);
+        }
+
+        .result-item:hover {
+            background: rgba(15, 148, 136, 0.05);
+            transform: translateX(4px);
+        }
+
+        body.dark-mode .result-item:hover {
+            background: rgba(15, 148, 136, 0.1);
+        }
+
+        /* 过滤按钮动画 */
+        .filter-btn {
+            transition: all var(--transition-normal);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .filter-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .filter-btn:active {
+            transform: translateY(0);
+        }
+
+        /* 热门电影卡片动画 */
+        .douban-movie-card {
+            transition: all var(--transition-normal);
+            transform-origin: center;
+        }
+
+        .douban-movie-card:hover {
+            transform: translateY(-4px) scale(1.02);
+        }
+
+        /* 搜索输入框聚焦效果 */
+        #searchInput {
+            transition: all var(--transition-normal);
+        }
+
+        #searchInput:focus {
+            box-shadow: 0 0 0 3px rgba(15, 148, 136, 0.2);
+        }
+
+        /* 标签云标签悬停效果 */
+        .hot-tagcloud-item {
+            transition: all 0.3s ease;
+        }
+
+        .hot-tagcloud-item:hover {
+            transform: scale(1.2);
+            text-shadow: 0 2px 4px rgba(15, 148, 136, 0.3);
+        }
+
+        /* 加载动画优化 */
+        .spinner-border {
+            animation: spinner-border 0.8s linear infinite;
+        }
+
+        @keyframes spinner-border {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
         .container-fluid-custom {
-            max-width: 1200px;
-            padding: 0 15px;
+            max-width: 1100px;
+            padding: 0 20px;
             margin: auto;
             width: 100%;
         }
 
-        /* 主内容区域，占据剩余空间，将底部推下去 */
         .main-content-wrapper {
             flex-grow: 1;
             width: 100%;
         }
 
-        /* Footer 和 Header 包装器 */
-        .header-wrapper, .footer-container {
-            width: 100%;
-            flex-shrink: 0;
+        .hero-row {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            position: relative;
+            background: linear-gradient(145deg, rgba(15, 148, 136, 0.12) 0%, rgba(15, 148, 136, 0.04) 35%, rgba(245, 158, 11, 0.06) 70%, rgba(15, 148, 136, 0.08) 100%);
+            border-radius: 20px;
+            box-shadow: 0 4px 20px -4px rgba(15, 148, 136, 0.15);
+            overflow: hidden;
+            margin-bottom: 20px;
+            height: 230px !important;
+            min-height: 230px !important;
+            max-height: 230px !important;
         }
 
-        /* --- 头部导航/Logo (固定位置) --- */
+        .hero-section {
+            flex: 1;
+            min-width: 0;
+            position: relative;
+            padding: 10px 28px;
+            z-index: 1;
+        }
+
+        .hero-aside {
+            flex-shrink: 0;
+            width: 340px;
+            position: relative;
+            z-index: 1;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .search-area {
+            margin-bottom: 10px;
+        }
+
+        .input-group-custom {
+            max-width: 100%;
+            margin: 0;
+            box-shadow: 0 4px 16px rgba(15, 148, 136, 0.08), 0 2px 4px rgba(15, 148, 136, 0.04);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: box-shadow 0.3s ease, transform 0.15s ease;
+        }
+
         .header-wrapper {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             z-index: 1030;
-            background-color: #ffffff;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+            border-bottom: 1px solid rgba(15, 148, 136, 0.08);
         }
 
         .header-bar {
-            padding: 15px 0;
-        }
-
-        .header-divider {
-            border-top: 1px solid #e0e0e0;
-            margin-bottom: 0;
+            padding: 12px 0;
         }
 
         .search-logo-container {
             display: flex;
             align-items: center;
             text-decoration: none;
-        }
-
-        .search-logo {
-            max-width: 35px;
-            height: auto;
-            margin-right: 10px;
+            transition: transform var(--transition-fast);
         }
 
         .logo-text {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #F5BF60;
+            font-size: 1.4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
         }
 
-        .top-right-nav .btn {
-            font-size: 0.9rem;
-            font-weight: 500;
-            margin-left: 15px;
-            border-radius: 8px;
-        }
-        
-        .top-right-nav .btn-primary {
-            background-color: #FFB300;
-            border-color: #FFB300;
-        }
-        
-        .top-right-nav .btn-primary:hover {
-            background-color: #C78C2B;
-            border-color: #C78C2B;
-        }
-
-
-        /* --- 底部版权 --- */
-        .footer-container {
-            flex-shrink: 0;
-            width: 100%;
-            margin-top: 30px;
-        }
-
-        .footer-copyright {
-            text-align: center;
-            padding: 20px 0;
-            border-top: 1px solid #e9ecef;
-            color: #6c757d;
-            font-size: 0.8rem;
-        }
-
-        /* 响应式调整 */
         @media (max-width: 768px) {
+            .hero-row {
+                flex-direction: column;
+            }
+
+            .hero-section {
+                padding: 24px 18px;
+                width: 100%;
+                max-width: 100%;
+                box-sizing: border-box;
+                overflow: hidden;
+            }
+
+            .hero-aside {
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s ease;
+            }
+
+            .hero-aside.mobile-expanded {
+                max-height: 400px;
+            }
+        }
+
+        /* 手机端logo居中 */
+        @media only screen and (max-width: 767px) {
+            .header-bar .d-flex {
+                justify-content: center !important;
+            }
+            
+            .header-bar .d-flex .dropdown {
+                width: 100% !important;
+                display: flex !important;
+                justify-content: center !important;
+            }
+            
+            .search-logo-container {
+                justify-content: center !important;
+            }
+            
             .logo-text {
-                display: none;
+                font-size: 1.3rem !important;
             }
         }
     </style>
@@ -131,25 +524,32 @@
 <div class="header-wrapper">
     <div class="container-fluid-custom header-bar">
         <div class="d-flex justify-content-between align-items-center">
-            <a href="{{ url_for('search_index') }}" class="search-logo-container">
-                <img src="{{ url_for('static', filename='images/search_logo.png') }}" alt="小青搜剧" class="search-logo">
-                <span class="logo-text">小青搜剧</span>
-            </a>
-            <div class="top-right-nav">
+            <div class="dropdown">
+                <a href="{{ url_for('search_index') }}" class="search-logo-container dropdown-toggle" id="logoDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <span class="logo-text">桃白白影视</span>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="logoDropdown">
+                    {% if is_logged_in %}
+                    <li><a class="dropdown-item" href="/logout"><i class="fas fa-sign-out-alt"></i> 退出</a></li>
+                    {% else %}
+                    <li><a class="dropdown-item" href="/admin"><i class="fas fa-user"></i> 登录</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+            <div class="top-right-nav" style="display: flex; align-items: center;">
+                {% if is_logged_in %}
                 <button class="btn {{ 'btn-primary' if active_page == 'search' else 'btn-outline-secondary' }}" id="searchLink">
                     <i class="fas fa-search"></i> 搜索
                 </button>
-                <button class="btn {{ 'btn-primary' if active_page == 'config' else 'btn-outline-secondary' }}" id="configLink" {% if not is_logged_in %}style="display: none;"{% endif %}>
+                <button class="btn {{ 'btn-primary' if active_page == 'config' else 'btn-outline-secondary' }}" id="configLink">
                     <i class="fas fa-cog"></i> 配置
                 </button>
-                <button class="btn {{ 'btn-primary' if active_page == 'resources' else 'btn-outline-secondary' }}" id="resourcesLink" {% if not is_logged_in %}style="display: none;"{% endif %}>
+                <button class="btn {{ 'btn-primary' if active_page == 'resources' else 'btn-outline-secondary' }}" id="resourcesLink">
                     <i class="fas fa-fire"></i> 热门资源
                 </button>
-                <button class="btn btn-link text-muted" id="adminLoginLink" {% if is_logged_in %}style="display: none;"{% endif %}>
-                    <i class="fas fa-user"></i> 登录
-                </button>
-                <button class="btn btn-link text-muted" id="adminLogoutLink" {% if not is_logged_in %}style="display: none;"{% endif %}>
-                    <i class="fas fa-sign-out-alt"></i> 退出
+                {% endif %}
+                <button class="theme-toggle" id="themeToggle" aria-label="切换深色模式">
+                    <i class="fas fa-moon"></i>
                 </button>
             </div>
         </div>
@@ -157,92 +557,315 @@
     <div class="header-divider"></div>
 </div>
 
+
+
 {% block content %}{% endblock %}
 
-<div class="footer-container">
-    <div class="container-fluid-custom">
-        <div class="footer-copyright">
-            &copy; 2024-2025 小青搜剧 | <a id="disclaimerLink">仅供学习交流使用</a>
+{% if active_page == 'search' %}
+<div class="qr-float-btn" onclick="showQrCodeModal()" role="button" aria-label="扫码进群" tabindex="0">
+    <div style="width: 36px; height: 36px; border-radius: 12px; overflow: hidden; margin-bottom: 4px;">
+        <img src="/get-qr-code" alt="二维码" onerror="this.src='/static/images/code.webp'" style="filter: none; width: 100%; height: 100%; object-fit: cover;" loading="lazy" decoding="async"/>
+    </div>
+    <div>扫码进群</div>
+</div>
+
+<style>
+    .qr-float-btn {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        z-index: 9999;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        border-radius: 24px;
+        width: 84px;
+        height: 84px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 8px 24px rgba(15, 148, 136, 0.35);
+        cursor: pointer;
+        transition: all var(--transition-normal);
+    }
+    .qr-float-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 12px 32px rgba(15, 148, 136, 0.45);
+    }
+    .qr-float-btn:hover div img {
+        transform: scale(1.1);
+    }
+    .qr-float-btn div {
+        font-size: 11px;
+        color: white;
+        text-align: center;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        transition: all var(--transition-normal);
+    }
+</style>
+
+<!-- 二维码弹窗 -->
+<div id="qrCodeModal" class="qr-modal-overlay">
+    <div class="qr-modal-content">
+        <!-- 标题栏 -->
+        <div class="qr-modal-header">
+            <h3>扫码进群</h3>
+            <button class="qr-modal-close" onclick="closeQrCodeModal()">&times;</button>
+        </div>
+        <!-- 内容 -->
+        <div class="qr-modal-body">
+            <p class="qr-modal-desc">资源求助 · 点映通知 · 网站资讯 · 网站建议</p>
+            <div class="qr-modal-image-wrap">
+                <img id="qrModalImage" src="" alt="二维码" onerror="this.src='/static/images/code.webp'" style="filter: none;" loading="lazy" decoding="async"/>
+            </div>
+            <p class="qr-modal-title">资源失效补链 · 找不到的帮你找</p>
+            <p class="qr-modal-hint">截图保存 → 微信扫一扫 → 相册识别</p>
+            <button class="qr-modal-btn" onclick="closeQrCodeModal()">我知道了</button>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
-    integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
-    crossorigin="anonymous"></script>
-
-{% block scripts %}
-<script>
-    // --- 导航链接事件的公共逻辑 ---
-
-
-
-    // 检查是否有JWT令牌来确定用户是否登录
-        document.addEventListener('DOMContentLoaded', () => {
-            const configLink = document.getElementById('configLink');
-            const resourcesLink = document.getElementById('resourcesLink');
-            const adminLoginLink = document.getElementById('adminLoginLink');
-            const adminLogoutLink = document.getElementById('adminLogoutLink');
-            const searchLink = document.getElementById('searchLink');
-
-            // 搜索按钮始终可见，无需设置
-
-            // 配置按钮点击事件 - 移除密码验证
-            if (configLink) {
-                configLink.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    window.location.href = '/api_config';
-                });
-            }
-
-            // 热门资源按钮点击事件 - 移除密码验证
-            if (resourcesLink) {
-                resourcesLink.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    window.location.href = '/hot_resource';
-                });
-            }
-
-            // 管理员登录按钮点击事件
-            if (adminLoginLink) {
-                adminLoginLink.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    window.location.href = '/admin';
-                });
-            }
-
-            // 管理员退出按钮点击事件
-            if (adminLogoutLink) {
-                adminLogoutLink.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    window.location.href = '/logout';
-                });
-            }
-
-            // 顶部搜索按钮点击事件 (点击跳转到首页)
-            if (searchLink) {
-                searchLink.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    // *** 修正：跳转到 Flask 搜索页路由 'index' ***
-                    window.location.href = "{{ url_for('search_index') }}";
-                });
-            }
-
-        // 头部 Logo 的链接也改为明确跳转到首页路由
-        const logoLink = document.querySelector('.search-logo-container');
-        if (logoLink) {
-            logoLink.href = "{{ url_for('search_index') }}";
+<style>
+    .qr-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        z-index: 10000;
+        justify-content: center;
+        align-items: center;
+        animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    .qr-modal-content {
+        background: white;
+        border-radius: 24px;
+        width: 88%;
+        max-width: 340px;
+        overflow: hidden;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
         }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+    .qr-modal-header {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        color: white;
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .qr-modal-header h3 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+    }
+    .qr-modal-close {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0;
+        margin: 0;
+        line-height: 1;
+        opacity: 0.9;
+        transition: opacity var(--transition-fast);
+    }
+    .qr-modal-close:hover {
+        opacity: 1;
+    }
+    .qr-modal-body {
+        padding: 24px;
+        text-align: center;
+    }
+    .qr-modal-desc {
+        margin: 0 0 18px 0;
+        color: var(--text-secondary);
+        font-size: 13px;
+        font-weight: 500;
+    }
+    .qr-modal-image-wrap {
+        background: linear-gradient(135deg, rgba(15, 148, 136, 0.06) 0%, rgba(245, 158, 11, 0.04) 100%);
+        padding: 20px;
+        border-radius: 16px;
+        display: inline-block;
+        border: 1px solid rgba(15, 148, 136, 0.1);
+    }
+    .qr-modal-image-wrap img {
+        width: 170px;
+        height: 170px;
+        border-radius: 8px;
+    }
+    .qr-modal-title {
+        margin: 18px 0 6px 0;
+        color: var(--text-primary);
+        font-size: 14px;
+        font-weight: 600;
+    }
+    .qr-modal-hint {
+        margin: 0 0 20px 0;
+        color: var(--text-tertiary);
+        font-size: 12px;
+    }
+    .qr-modal-btn {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        color: white;
+        border: none;
+        padding: 12px 32px;
+        border-radius: 24px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        width: 100%;
+        max-width: 180px;
+        transition: all var(--transition-normal);
+        box-shadow: 0 4px 12px rgba(15, 148, 136, 0.25);
+    }
+    .qr-modal-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(15, 148, 136, 0.35);
+    }
+</style>
 
-        // 底部免责声明点击事件
-        const disclaimerLink = document.getElementById('disclaimerLink');
-        if (disclaimerLink) {
-            disclaimerLink.addEventListener('click', function (e) {
-                e.preventDefault();
-                alert('\n小青搜剧整合多源影视资源 API，提供高效影视检索服务。\n\n声明：\n1. 本工具仅作为影视资源检索的辅助工具，不存储任何资源内容。\n2. 所有数据来源于第三方 API，仅供学习与交流使用，请勿用于商业用途。\n\n感谢您的使用！');
+<script>
+    // 等待DOM加载完成
+    document.addEventListener('DOMContentLoaded', function() {
+        // 点击遮罩层关闭弹窗
+        var qrModal = document.getElementById('qrCodeModal');
+        if (qrModal) {
+            qrModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeQrCodeModal();
+                }
             });
         }
     });
+    
+    function showQrCodeModal() {
+        var modal = document.getElementById('qrCodeModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.style.visibility = 'visible';
+            modal.style.opacity = '1';
+
+            // 使用新的无缓存路由刷新二维码
+            var qrImg = document.getElementById('qrModalImage');
+            if (qrImg) {
+                // 添加随机数确保强制重新加载
+                qrImg.src = '/get-qr-code?' + new Date().getTime();
+            }
+
+            // 添加 Escape 键关闭支持
+            document.addEventListener('keydown', handleQrModalEscape);
+        }
+    }
+    function closeQrCodeModal() {
+        var modal = document.getElementById('qrCodeModal');
+        if (modal) {
+            modal.style.display = 'none';
+            modal.style.visibility = 'hidden';
+            modal.style.opacity = '0';
+        }
+        // 移除 Escape 键监听
+        document.removeEventListener('keydown', handleQrModalEscape);
+    }
+    function handleQrModalEscape(e) {
+        if (e.key === 'Escape') {
+            closeQrCodeModal();
+        }
+    }
+</script>
+{% endif %}
+
+
+
+<script defer src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/common.min.js') }}"></script>
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const configLink = document.getElementById('configLink');
+    const resourcesLink = document.getElementById('resourcesLink');
+    const searchLink = document.getElementById('searchLink');
+    const logoLink = document.querySelector('.search-logo-container');
+    const themeToggle = document.getElementById('themeToggle');
+
+    if (configLink) {
+        configLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            window.location.href = '/api_config';
+        });
+    }
+
+    if (resourcesLink) {
+        resourcesLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            window.location.href = '/hot_resource';
+        });
+    }
+
+    if (searchLink) {
+        searchLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            window.location.href = "{{ url_for('search_index') }}";
+        });
+    }
+
+    if (logoLink) {
+        logoLink.href = "{{ url_for('search_index') }}";
+    }
+
+    if (themeToggle) {
+        const themeIcon = themeToggle.querySelector('i');
+        const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const savedTheme = localStorage.getItem('theme');
+
+        if (savedTheme === 'dark' || (!savedTheme && prefersDarkMode)) {
+            document.body.classList.add('dark-mode');
+            if (themeIcon) {
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+            }
+        }
+
+        themeToggle.addEventListener('click', function() {
+            const isDarkMode = document.body.classList.toggle('dark-mode');
+            if (themeIcon) {
+                if (isDarkMode) {
+                    themeIcon.classList.remove('fa-moon');
+                    themeIcon.classList.add('fa-sun');
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    themeIcon.classList.remove('fa-sun');
+                    themeIcon.classList.add('fa-moon');
+                    localStorage.setItem('theme', 'light');
+                }
+            }
+        });
+    }
+});
 </script>
 {% endblock %}
 

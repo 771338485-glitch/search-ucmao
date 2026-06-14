@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>影视图片测试</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .movie-card {
+            margin-bottom: 20px;
+            transition: transform 0.3s ease;
+        }
+        .movie-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        .movie-card img {
+            height: 450px;
+            object-fit: cover;
+        }
+        .movie-info {
+            padding: 10px;
+        }
+        .movie-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .movie-genres {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-5">影视图片测试</h1>
+        
+        <div class="row" id="movies-container">
+            <!-- 影视卡片将在这里动态生成 -->
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // API URL
+        const apiUrl = 'http://localhost:5005/api/movies/hot?page=1&limit=10&category=%E7%94%B5%E5%BD%B1';
+
+        // 加载影视数据
+        async function loadMovies() {
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                
+                if (data.code === 0 && data.data.items.length > 0) {
+                    displayMovies(data.data.items);
+                } else {
+                    document.getElementById('movies-container').innerHTML = '<div class="col-12 text-center"><p>没有找到影视数据</p></div>';
+                }
+            } catch (error) {
+                console.error('加载影视数据失败:', error);
+                document.getElementById('movies-container').innerHTML = '<div class="col-12 text-center"><p>加载失败，请稍后重试</p></div>';
+            }
+        }
+
+        // 显示影视数据
+        function displayMovies(movies) {
+            const container = document.getElementById('movies-container');
+            container.innerHTML = '';
+
+            movies.forEach(movie => {
+                // 使用本地图片或备用图片
+                let imageUrl = movie.cover_url;
+                if (!imageUrl || imageUrl.includes('placeholder')) {
+                    // 使用备用图片
+                    const fallbackImages = [
+                        'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=movie%20poster%20action%20film&image_size=portrait_4_3',
+                        'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=movie%20poster%20drama&image_size=portrait_4_3',
+                        'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=movie%20poster%20comedy&image_size=portrait_4_3',
+                        'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=movie%20poster%20romance&image_size=portrait_4_3'
+                    ];
+                    const randomIndex = Math.floor(Math.random() * fallbackImages.length);
+                    imageUrl = fallbackImages[randomIndex];
+                }
+
+                const movieCard = document.createElement('div');
+                movieCard.className = 'col-md-3 movie-card';
+                movieCard.innerHTML = `
+                    <div class="card">
+                        <img src="${imageUrl}" class="card-img-top" alt="${movie.title}">
+                        <div class="card-body movie-info">
+                            <h5 class="card-title movie-title">${movie.title}</h5>
+                            <p class="card-text movie-genres">${movie.genres.join(', ')}</p>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(movieCard);
+            });
+        }
+
+        // 页面加载时加载影视数据
+        window.onload = loadMovies;
+    </script>
+</body>
+</html>

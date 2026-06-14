@@ -1,0 +1,87 @@
+# ============================================
+# Docker 构建时忽略的文件
+# ============================================
+
+# 环境配置文件
+.env
+.env.local
+.env.*.local
+
+# 虚拟环境
+venv/
+env/
+.venv/
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# IDE 和编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.gitattributes
+README.md
+LICENSE
+
+# 测试和调试
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+.mypy_cache/
+test_*.py
+*_test.py
+
+# 日志文件
+*.log
+logs/
+log/
+
+# 临时文件
+*.tmp
+*.temp
+*.bak
+*.old
+
+# Docker 相关
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# 项目特定文件
+add_indexes.sql
+apply_indexes.py
+check_and_optimize_apis.py
+check_headers_and_cookies.py
+compare_three_links.py
+d960_link_content.html
+daemon.json
+fix_pansou_api.py
+get-pip.py
+get_api_configs.py
+hot_page.html
+optimize_indexes.sql
+pansou_response.json
+pansou_test_response.json
+api_content.txt
+baidu_link_content.html
+test_resource_data.py
+
+# 静态文件缓存
+static/images/movie_posters/*.jpg
+static/images/movie_posters/*.png

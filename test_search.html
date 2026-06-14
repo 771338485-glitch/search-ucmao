@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试搜索功能</title>
+</head>
+<body>
+    <div class="search-area">
+        <input type="text" id="searchInput" placeholder="搜索资源...">
+        <button id="searchButton">搜索</button>
+    </div>
+    <div id="resultContainer"></div>
+    <div id="statusBar"></div>
+    <div id="loadingMore"></div>
+    <div id="netdisk-filter-bar"></div>
+    <div class="filter-and-count-container"></div>
+    <div id="scrollableResults"></div>
+    <div id="doubanHotSection"></div>
+
+    <script src="/static/js/index.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('测试页面加载完成');
+            const searchButton = document.getElementById('searchButton');
+            const searchInput = document.getElementById('searchInput');
+            
+            if (searchButton) {
+                searchButton.addEventListener('click', function() {
+                    console.log('点击搜索按钮');
+                    if (window.performSearch) {
+                        console.log('调用performSearch函数');
+                        window.performSearch();
+                    } else {
+                        console.error('performSearch函数不存在');
+                    }
+                });
+            }
+            
+            if (searchInput) {
+                searchInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        console.log('按下回车键');
+                        if (window.performSearch) {
+                            window.performSearch();
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

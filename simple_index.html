@@ -1,0 +1,126 @@
+{% extends "_layout.html" %}
+{% set active_page = 'search' %}
+
+{% block head %}
+    <title>桃白白影视 - 搜索页面</title>
+    <link rel="shortcut icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+    <link rel="stylesheet" href="/static/css/index.min.css?v=17">
+{% endblock %}
+
+{% block content %}
+    <div class="main-content-wrapper">
+        <div class="container-fluid-custom">
+            <!-- 英雄区域 + 热门搜索 - 采纳 PanHub 设计 -->
+            <div class="hero-row">
+                <div class="hero-noise" aria-hidden="true"></div>
+                <div class="hero-section">
+                    <div class="hero-accent-bar"></div>
+                    <div class="hero-content">
+                        <div class="hero-badge">桃白白影视 · 搜索聚合引擎</div>
+                        <h1 class="hero-title">
+                            <span class="hero-title-line">一键检索</span>
+                            <span class="hero-title-line hero-title-line--accent">全网网盘资源</span>
+                        </h1>
+                        <p class="hero-description">
+                            聚合夸克、百度网盘· 快速、直达，后续加入阿里云盘、115、迅雷
+                        </p>
+                        <ul class="hero-features" role="list">
+                            <li class="hero-feature">实时聚合</li>
+                            <li class="hero-feature">多平台覆盖</li>
+                            <li class="hero-feature">结果去重</li>
+                        </ul>
+                    </div>
+                    <div class="hero-shape"></div>
+                </div>
+
+                <!-- 热门搜索侧边栏 -->
+                <div class="hero-aside">
+                    <div class="wordcloud-header">
+                        <i class="fas fa-fire"></i>
+                        <span>热门搜索</span>
+                    </div>
+                    <div class="tag-cloud-wrap">
+                        <div id="tagCloud"></div>
+                    </div>
+                    <div id="wordcloudPlaceholder" class="wordcloud-placeholder">
+                        <div class="placeholder-icon">
+                            <i class="fas fa-cloud"></i>
+                        </div>
+                        <p>暂无热门搜索数据</p>
+                        <p class="placeholder-hint">开始搜索后，热门关键词将展示在这里</p>
+                    </div>
+                </div>
+            </div>
+
+    <!-- 搜索区域 -->
+    <div class="search-area">
+                <div class="input-group input-group-custom">
+                    <input type="text" class="form-control" id="searchInput" placeholder="搜索资源 电影 电视剧 音乐 软件...">
+                    <button class="btn" id="searchButton">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 状态栏 -->
+            <div id="statusBar" class="d-none text-center mb-3 p-2 bg-warning bg-opacity-25 text-dark rounded-3"></div>
+
+            <!-- 网盘过滤栏 -->
+            <div id="netdisk-filter-bar" class="d-none">
+                <button class="filter-btn active" data-netdisk="全部">全部</button>
+            </div>
+
+            <div class="filter-and-count-container d-none mt-3 d-flex justify-content-between align-items-center">
+                <p class="result-count mb-0" id="resultCountText"></p>
+            </div>
+
+            <!-- 热门影视推荐 -->
+            <div id="doubanHotSection" class="douban-section">
+                <div class="douban-header">
+                    <div class="douban-title">
+                        <i class="fas fa-film"></i>
+                        <span>热门影视推荐</span>
+                    </div>
+                    <div class="douban-tabs">
+                        <button class="douban-tab active" data-chart="douban-movie">电影榜</button>
+                        <button class="douban-tab" data-chart="douban-weekly">电视榜</button>
+                        <button class="douban-tab" data-chart="douban-anime">动漫榜</button>
+                    </div>
+                </div>
+                <div id="doubanMoviesContainer" class="douban-movies-container">
+                    <div class="douban-skeleton-list">
+                        <div class="douban-skeleton-item"></div>
+                        <div class="douban-skeleton-item"></div>
+                        <div class="douban-skeleton-item"></div>
+                        <div class="douban-skeleton-item"></div>
+                        <div class="douban-skeleton-item"></div>
+                        <div class="douban-skeleton-item"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 搜索结果 -->
+            <div id="scrollableResults">
+                <div id="resultContainer" class="text-center initial-prompt-area d-none">
+                    <div class="initial-icon-wrapper">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <h3 class="mt-3 text-muted">输入关键词开始搜索</h3>
+                </div>
+
+                <div id="loadingMore" class="d-none text-center p-3">
+                    <div class="spinner-border spinner-border-sm me-2" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    加载更多结果...
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script src="/static/js/TagCloud.min.js?v=3"></script>
+    <script src="/static/js/index.js"></script>
+{% endblock %}

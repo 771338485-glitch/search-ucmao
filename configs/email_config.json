@@ -1,0 +1,9 @@
+{
+  "notification_email": "771338485@qq.com",
+  "smtp_server": "smtp.qq.com",
+  "smtp_port": 465,
+  "smtp_username": "771338485@qq.com",
+  "smtp_password": "wfbhllhalrntbdfc",
+  "use_tls": false,
+  "enabled": true
+}

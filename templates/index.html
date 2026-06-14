@@ -2,48 +2,386 @@
 {% set active_page = 'search' %}
 
 {% block head %}
-    <title>小青搜剧 - 搜索页面</title>
+    <title>桃白白影视 - 搜索页面</title>
     <link rel="shortcut icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+    <link rel="stylesheet" href="/static/css/index.css?v=28">
+    <style>
+        /* 豆瓣热门榜单样式 - 确保正确显示 */
+        .douban-section {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 28px;
+            box-shadow: 0 4px 16px rgba(15, 148, 136, 0.08), 0 2px 4px rgba(15, 148, 136, 0.04);
+            border: 1px solid var(--border-light);
+        }
+        
+        .douban-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(15, 148, 136, 0.08);
+        }
+        
+        .douban-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .douban-title i {
+            color: #0d9488;
+            font-size: 1.1rem;
+        }
+        
+        .douban-tabs {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .douban-tab {
+            padding: 6px 16px;
+            border: 1px solid var(--border-light);
+            background: white;
+            color: var(--text-secondary);
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .douban-tab:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: rgba(15, 148, 136, 0.05);
+        }
+        
+        .douban-tab.active {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            border-color: transparent;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(15, 148, 136, 0.25);
+        }
+        
+        .douban-movies-container {
+            position: relative;
+            min-height: 180px;
+        }
+        
+        .douban-skeleton-list {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 12px;
+        }
+        
+        .douban-skeleton-item {
+            aspect-ratio: 2/3;
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            border-radius: 12px;
+            animation: doubanShimmer 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes doubanShimmer {
+            0% {
+                background-position: -200% 0;
+            }
+            100% {
+                background-position: 200% 0;
+            }
+        }
+        
+        .douban-movie-list {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 10px;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .douban-movie-list::-webkit-scrollbar {
+            height: 6px;
+        }
+        
+        .douban-movie-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        
+        .douban-movie-list::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        
+        .douban-movie-list::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+        
+        .douban-movie-card {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+            width: calc((100% - 60px) / 6);
+            min-width: 140px;
+        }
+        
+        .douban-movie-card:hover {
+            transform: translateY(-4px);
+        }
+        
+        .douban-movie-poster {
+            width: 100%;
+            aspect-ratio: 2/3;
+            object-fit: cover;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .poster-container {
+            width: 100%;
+            aspect-ratio: 2/3;
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .douban-movie-card:hover .douban-movie-poster {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        .douban-movie-placeholder {
+            width: 100%;
+            aspect-ratio: 2/3;
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f9fafb;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-align: center;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .movie-poster-placeholder {
+            width: 100%;
+            aspect-ratio: 2/3;
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-align: center;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .movie-poster-placeholder i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+        
+        .movie-poster-placeholder span {
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .douban-movie-card:hover .movie-poster-placeholder {
+            transform: scale(1.02);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        .douban-movie-info {
+            margin-top: 8px;
+        }
+        
+        .douban-movie-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .douban-movie-rating {
+            margin-top: 4px;
+            font-size: 0.8rem;
+            color: #f59e0b;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .douban-movie-rating i {
+            font-size: 0.75rem;
+        }
+        
+        /* 响应式适配 - 豆瓣榜单 */
+        @media (max-width: 1024px) {
+            .douban-movie-card {
+                width: calc((100% - 36px) / 4);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .douban-section {
+                padding: 16px;
+                border-radius: 16px;
+                margin-bottom: 24px;
+            }
+            
+            .douban-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            
+            .douban-tabs {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .douban-tab {
+                flex: 1;
+                padding: 8px 12px;
+                font-size: 0.8rem;
+            }
+            
+            .douban-movie-card {
+                width: calc((100% - 24px) / 3);
+                min-width: 120px;
+            }
+        }
+    </style>
+    </style>
 {% endblock %}
 
 {% block content %}
     <div class="main-content-wrapper">
         <div class="container-fluid-custom">
-            <div class="search-area">
+            <!-- 英雄区域 + 热门搜索 - 采纳 PanHub 设计 -->
+            <div class="hero-row">
+                <div class="hero-noise" aria-hidden="true"></div>
+                <div class="hero-section">
+                    <div class="hero-accent-bar"></div>
+                    <div class="hero-content">
+                        <div class="hero-badge">桃白白影视 · 搜索聚合引擎</div>
+                        <h1 class="hero-title">
+                            <span class="hero-title-line">一键检索</span>
+                            <span class="hero-title-line hero-title-line--accent">全网网盘资源</span>
+                        </h1>
+                        <p class="hero-description">
+                            聚合夸克、百度网盘· 快速、直达，后续加入阿里云盘、115、迅雷
+                        </p>
+                        <ul class="hero-features" role="list">
+                            <li class="hero-feature">实时聚合</li>
+                            <li class="hero-feature">多平台覆盖</li>
+                            <li class="hero-feature">结果去重</li>
+                        </ul>
+                    </div>
+                    <div class="hero-shape"></div>
+                </div>
+
+                <!-- 热门搜索侧边栏 -->
+                <div class="hero-aside">
+                    <div class="wordcloud-header">
+                        <i class="fas fa-fire"></i>
+                        <span>热门搜索</span>
+                    </div>
+                    <div class="tag-cloud-wrap">
+                        <div id="tagCloud"></div>
+                    </div>
+                    <div id="wordcloudPlaceholder" class="wordcloud-placeholder">
+                        <div class="placeholder-icon">
+                            <i class="fas fa-cloud"></i>
+                        </div>
+                        <p>暂无热门搜索数据</p>
+                        <p class="placeholder-hint">开始搜索后，热门关键词将展示在这里</p>
+                    </div>
+                </div>
+            </div>
+
+    <!-- 搜索区域 -->
+    <div class="search-area">
                 <div class="input-group input-group-custom">
                     <input type="text" class="form-control" id="searchInput" placeholder="搜索资源 电影 电视剧 音乐 软件...">
-                    <button class="btn" id="searchButton">
+                    <button class="btn" id="searchButton" aria-label="搜索">
                         <i class="fas fa-paper-plane"></i>
                     </button>
                 </div>
             </div>
 
-            <div id="statusBar" class="d-none text-center mb-3 p-2 bg-warning bg-opacity-25 text-dark rounded-3">
-                </div>
+            <!-- 状态栏 -->
+            <div id="statusBar" class="d-none text-center mb-3 p-2 bg-warning bg-opacity-25 text-dark rounded-3"></div>
 
+            <!-- 网盘过滤栏 -->
             <div id="netdisk-filter-bar" class="d-none">
                 <button class="filter-btn active" data-netdisk="全部">全部</button>
             </div>
 
             <div class="filter-and-count-container d-none mt-3 d-flex justify-content-between align-items-center">
                 <p class="result-count mb-0" id="resultCountText"></p>
-                <div id="advanced-filter-bar" class="d-inline-flex gap-2 mb-2">
-                    <div class="input-group input-group-sm" style="height: 30px; width: 220px;">
-                        <span class="input-group-text" style="background-color: #f0f0f0; border-color: #ddd; height: 30px; padding: 0.25rem 0.75rem; min-width: 40px; text-align: center;">包含</span>
-                        <input type="text" class="form-control form-control-sm" id="includeFilter" placeholder="关键词1 关键词2" style="height: 30px; padding: 0.25rem 0.5rem;">
+            </div>
+
+            <!-- 热门影视推荐 -->
+            <div id="doubanHotSection" class="douban-section">
+                <div class="douban-header">
+                    <div class="douban-title">
+                        <i class="fas fa-film"></i>
+                        <span>热门影视推荐</span>
                     </div>
-                    <div class="input-group input-group-sm" style="height: 30px; width: 220px;">
-                        <span class="input-group-text" style="background-color: #f0f0f0; border-color: #ddd; height: 30px; padding: 0.25rem 0.75rem; min-width: 40px; text-align: center;">不包含</span>
-                        <input type="text" class="form-control form-control-sm" id="excludeFilter" placeholder="排除词1 排除词2" style="height: 30px; padding: 0.25rem 0.5rem;">
+                    <div class="douban-tabs">
+                        <button class="douban-tab active" data-chart="douban-hot">热门榜</button>
+                        <button class="douban-tab" data-chart="douban-new">新上映</button>
+                        <button class="douban-tab" data-chart="douban-movie">电影榜</button>
+                        <button class="douban-tab" data-chart="douban-weekly">电视榜</button>
+                        <button class="douban-tab" data-chart="douban-anime">动漫榜</button>
                     </div>
-                    <button class="btn btn-outline-primary btn-sm" id="applyFilter" style="height: 30px; padding: 0.25rem 0.75rem;">应用</button>
+                </div>
+                <div id="doubanMoviesContainer" class="douban-movies-container">
+                    <div class="douban-skeleton-list">
+                        <div class="douban-skeleton-item"></div>
+                        <div class="douban-skeleton-item"></div>
+                        <div class="douban-skeleton-item"></div>
+                        <div class="douban-skeleton-item"></div>
+                        <div class="douban-skeleton-item"></div>
+                        <div class="douban-skeleton-item"></div>
+                    </div>
                 </div>
             </div>
 
-
+            <!-- 搜索结果 -->
             <div id="scrollableResults">
-                <div id="resultContainer" class="text-center initial-prompt-area">
+                <div id="resultContainer" class="text-center initial-prompt-area d-none">
                     <div class="initial-icon-wrapper">
                         <i class="fas fa-cloud-upload-alt"></i>
                     </div>
@@ -63,5 +401,657 @@
 
 {% block scripts %}
     {{ super() }}
-    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+    <script defer src="/static/js/TagCloud.min.js?v=3"></script>
+    <script defer src="/static/js/index.js?v=28"></script>
+    <script>
+        // HTML 转义函数，防止 XSS 攻击
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        let tagCloudInstance = null;
+        let currentDoubanChart = 'douban-movie';
+        let doubanCurrentPage = 1;
+        let doubanHasMore = true;
+        let doubanIsLoading = false;
+        let doubanScrollHandler = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadWordCloud();
+            setupSearchInputObserver();
+            setupSearchButtonObserver();
+            setupDoubanTabs();
+            
+            // 页面加载时加载豆瓣榜单数据 - 默认加载热门榜
+            setTimeout(function() {
+                loadDoubanMovies('douban-hot', true);
+            }, 100);
+        });
+        
+        function setupSearchButtonObserver() {
+            const searchInput = document.getElementById('searchInput');
+            
+            if (searchInput) {
+                searchInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && this.value.trim()) {
+                        const doubanSection = document.getElementById('doubanHotSection');
+                        if (doubanSection) doubanSection.style.display = 'none';
+                    }
+                });
+            }
+        }
+
+        function loadWordCloud() {
+            fetch('/api/search_history/stats?limit=6')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data.length > 0) {
+                        renderTagCloud(data.data);
+                    } else {
+                        showPlaceholder();
+                    }
+                })
+                .catch(error => {
+                    console.error('加载热词云图失败:', error);
+                    showPlaceholder();
+                });
+        }
+
+        function renderTagCloud(stats) {
+            const tagCloudContainer = document.getElementById('tagCloud');
+            const placeholder = document.getElementById('wordcloudPlaceholder');
+            const tagCloudWrap = document.querySelector('.tag-cloud-wrap');
+            
+            if (!tagCloudContainer || !TagCloud) {
+                showPlaceholder();
+                return;
+            }
+
+            if (tagCloudInstance) {
+                tagCloudInstance.destroy();
+                tagCloudContainer.innerHTML = '';
+            }
+
+            tagCloudWrap.style.display = 'block';
+            placeholder.style.display = 'none';
+
+            const texts = stats.map(item => item.search_keyword);
+            
+            const colors = [
+                '#0d9488', '#0f766e', '#14b8a6',
+                '#f59e0b', '#d97706', '#fbbf24',
+                '#6366f1', '#4f46e5', '#7c3aed'
+            ];
+
+            tagCloudInstance = TagCloud(tagCloudContainer, texts, {
+                radius: 70,
+                maxSpeed: 'slow',
+                initSpeed: 'slow',
+                direction: 135,
+                keep: true,
+                containerClass: 'hot-tagcloud',
+                itemClass: 'hot-tagcloud-item'
+            });
+
+            const items = tagCloudContainer.querySelectorAll('.hot-tagcloud-item');
+            items.forEach((item, index) => {
+                item.style.color = colors[index % colors.length];
+                item.style.fontWeight = '600';
+                item.style.fontSize = Math.max(14, Math.min(24, 14 + (stats[index].count / stats[0].count) * 10)) + 'px';
+                item.style.transition = 'all 0.3s ease';
+                
+                item.addEventListener('click', function() {
+                    const searchInput = document.getElementById('searchInput');
+                    const searchButton = document.getElementById('searchButton');
+                    if (searchInput && searchButton) {
+                        searchInput.value = item.innerText.trim();
+                        searchButton.click();
+                    }
+                });
+
+                item.addEventListener('mouseenter', function() {
+                    item.style.transform = 'scale(1.2)';
+                    item.style.opacity = '1';
+                });
+
+                item.addEventListener('mouseleave', function() {
+                    item.style.transform = 'scale(1)';
+                    item.style.opacity = '0.9';
+                });
+            });
+        }
+
+        function showPlaceholder() {
+            const tagCloudWrap = document.querySelector('.tag-cloud-wrap');
+            const placeholder = document.getElementById('wordcloudPlaceholder');
+            if (tagCloudWrap) tagCloudWrap.style.display = 'none';
+            if (placeholder) placeholder.style.display = 'flex';
+        }
+
+        let wordCloudTimer;
+        window.addEventListener('resize', function() {
+            clearTimeout(wordCloudTimer);
+            wordCloudTimer = setTimeout(loadWordCloud, 300);
+        });
+
+        function setupSearchInputObserver() {
+            const searchInput = document.getElementById('searchInput');
+            const doubanSection = document.getElementById('doubanHotSection');
+            const resultContainer = document.getElementById('resultContainer');
+            const statusBar = document.getElementById('statusBar');
+            const filterCountContainer = document.querySelector('.filter-and-count-container');
+            const filterBar = document.getElementById('netdisk-filter-bar');
+            const loadingMore = document.getElementById('loadingMore');
+            const heroSection = document.querySelector('.hero-row');
+            
+            if (!searchInput || !doubanSection) return;
+            
+            // 添加平滑过渡效果
+            doubanSection.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            if (heroSection) {
+                heroSection.style.transition = 'opacity 0.6s ease, transform 0.6s ease, max-height 0.6s ease';
+                heroSection.style.overflow = 'hidden';
+            }
+            
+            function toggleSections() {
+                const isEmpty = searchInput.value.trim() === '';
+                
+                if (isEmpty) {
+                    // 输入框为空时，显示热门影视推荐和英雄区域，隐藏搜索结果
+                    doubanSection.style.opacity = '1';
+                    doubanSection.style.transform = 'translateY(0)';
+                    doubanSection.style.display = 'block';
+                    
+                    // 显示英雄区域
+                    if (heroSection) {
+                        heroSection.style.opacity = '1';
+                        heroSection.style.transform = 'translateY(0)';
+                        heroSection.style.maxHeight = '500px';
+                        heroSection.style.display = 'flex';
+                    }
+                    
+                    // 隐藏搜索结果相关元素
+                    if (resultContainer) resultContainer.classList.add('d-none');
+                    if (statusBar) statusBar.classList.add('d-none');
+                    if (filterCountContainer) filterCountContainer.classList.add('d-none');
+                    if (filterBar) filterBar.classList.add('d-none');
+                    if (loadingMore) loadingMore.classList.add('d-none');
+                }
+                // 其他情况下，不修改样式，保持当前显示不变
+            }
+            
+            // 只在输入框内容变化且变为空时触发
+            searchInput.addEventListener('input', function() {
+                const isEmpty = this.value.trim() === '';
+                if (isEmpty) {
+                    toggleSections();
+                }
+                // 输入框有内容时，不做任何修改
+            });
+            
+            // 页面加载时初始化
+            toggleSections();
+        }
+
+        function setupDoubanTabs() {
+            const tabs = document.querySelectorAll('.douban-tab');
+            const container = document.getElementById('doubanMoviesContainer');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function(e) {
+                    // 阻止默认行为，确保不会导致页面刷新
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const chart = this.getAttribute('data-chart');
+                    if (chart === currentDoubanChart) return;
+                    
+                    currentDoubanChart = chart;
+                    doubanCurrentPage = 1;
+                    doubanHasMore = true;
+                    
+                    // 添加标签切换动画
+                    tabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // 平滑过渡效果 - 先淡出当前内容
+                    if (container) {
+                        container.style.transition = 'opacity 0.2s ease';
+                        container.style.opacity = '0.5';
+                    }
+                    
+                    // 延迟显示骨架屏，让淡出动画完成
+                    setTimeout(() => {
+                        if (container) {
+                            // 隐藏容器，避免清空时的闪烁
+                            container.style.visibility = 'hidden';
+                            
+                            // 创建骨架屏元素
+                            const skeletonList = document.createElement('div');
+                            skeletonList.className = 'douban-skeleton-list';
+                            skeletonList.innerHTML = `
+                                <div class="douban-skeleton-item"></div>
+                                <div class="douban-skeleton-item"></div>
+                                <div class="douban-skeleton-item"></div>
+                                <div class="douban-skeleton-item"></div>
+                                <div class="douban-skeleton-item"></div>
+                                <div class="douban-skeleton-item"></div>
+                            `;
+                            
+                            // 清空容器并添加骨架屏
+                            container.innerHTML = '';
+                            container.appendChild(skeletonList);
+                            
+                            // 显示容器并确保骨架屏可见
+                            container.style.visibility = 'visible';
+                            container.style.opacity = '1';
+                        }
+                        
+                        // 加载数据，传递true作为reset参数，确保清空容器并从第一页开始加载
+                        loadDoubanMovies(chart, true);
+                    }, 200);
+                });
+            });
+        }
+
+        function loadDoubanMovies(chart, reset = false) {
+            const container = document.getElementById('doubanMoviesContainer');
+            if (!container) return;
+            
+            if (doubanIsLoading) return;
+            
+            doubanIsLoading = true;
+            
+            // 统一的加载完成回调
+            function handleLoadComplete() {
+                // 恢复容器的不透明度和位置，实现淡入效果
+                if (container) {
+                    container.style.opacity = '1';
+                    container.style.transform = 'translateY(0)';
+                }
+                doubanIsLoading = false;
+            }
+            
+            // 如果是热门榜，使用标签API获取热门影视
+            if (chart === 'douban-hot') {
+                // 从数据库获取热门影视数据（基于标签）
+                fetch(`/api/movies/tag/热门榜?page=${doubanCurrentPage}&limit=12`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.code === 0 && data.data && data.data.items) {
+                            if (data.data.items.length > 0) {
+                                // 转换数据格式
+                                const movies = data.data.items.map(movie => ({
+                                    id: movie.id,
+                                    title: movie.title,
+                                    cover: movie.cover_url || null,
+                                    desc: movie.genres ? movie.genres.join(' / ') : '',
+                                    hot: movie.query_count || 0,
+                                    url: movie.url || '#'
+                                }));
+                                renderDoubanMovies(movies, reset);
+                                doubanHasMore = data.data.hasMore;
+                                doubanCurrentPage++;
+                            } else {
+                                // 无数据时显示提示，使用淡入效果
+                                const noDataDiv = document.createElement('div');
+                                noDataDiv.className = 'text-center py-5';
+                                noDataDiv.innerHTML = `<p class="text-muted">暂无热门影视数据</p>`;
+                                noDataDiv.style.opacity = '0';
+                                noDataDiv.style.transform = 'translateY(10px)';
+                                noDataDiv.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                                
+                                container.innerHTML = '';
+                                container.appendChild(noDataDiv);
+                                
+                                // 触发淡入动画
+                                setTimeout(() => {
+                                    noDataDiv.style.opacity = '1';
+                                    noDataDiv.style.transform = 'translateY(0)';
+                                }, 10);
+                            }
+                        } else if (reset) {
+                            container.innerHTML = `
+                                <div class="text-center py-5">
+                                    <p class="text-muted">暂无热门影视数据</p>
+                                </div>
+                            `;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('加载热门影视数据失败:', error);
+                        // 加载失败时显示提示，使用淡入效果
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'text-center py-5';
+                        errorDiv.innerHTML = `<p class="text-danger">加载失败，请稍后重试</p>`;
+                        errorDiv.style.opacity = '0';
+                        errorDiv.style.transform = 'translateY(10px)';
+                        errorDiv.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                        
+                        container.innerHTML = '';
+                        container.appendChild(errorDiv);
+                        
+                        // 触发淡入动画
+                        setTimeout(() => {
+                            errorDiv.style.opacity = '1';
+                            errorDiv.style.transform = 'translateY(0)';
+                        }, 10);
+                    })
+                    .finally(handleLoadComplete);
+            } else if (chart === 'douban-new') {
+                // 新上映榜单，使用标签API获取新上映影视
+                fetch(`/api/movies/tag/新上映?page=${doubanCurrentPage}&limit=12`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.code === 0 && data.data && data.data.items) {
+                            if (data.data.items.length > 0) {
+                                // 转换数据格式
+                                const movies = data.data.items.map(movie => ({
+                                    id: movie.id,
+                                    title: movie.title,
+                                    cover: movie.cover_url || null,
+                                    desc: movie.genres ? movie.genres.join(' / ') : '',
+                                    hot: movie.query_count || 0,
+                                    url: movie.url || '#'
+                                }));
+                                renderDoubanMovies(movies, reset);
+                                doubanHasMore = data.data.hasMore;
+                                doubanCurrentPage++;
+                            } else if (reset) {
+                                container.innerHTML = `
+                                    <div class="text-center py-5">
+                                        <p class="text-muted">暂无新上映影视数据</p>
+                                    </div>
+                                `;
+                            }
+                        } else if (reset) {
+                            container.innerHTML = `
+                                <div class="text-center py-5">
+                                    <p class="text-muted">暂无新上映影视数据</p>
+                                </div>
+                            `;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('加载新上映影视数据失败:', error);
+                        // 加载失败时显示提示，使用淡入效果
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'text-center py-5';
+                        errorDiv.innerHTML = `<p class="text-danger">加载失败，请稍后重试</p>`;
+                        errorDiv.style.opacity = '0';
+                        errorDiv.style.transform = 'translateY(10px)';
+                        errorDiv.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                        
+                        container.innerHTML = '';
+                        container.appendChild(errorDiv);
+                        
+                        // 触发淡入动画
+                        setTimeout(() => {
+                            errorDiv.style.opacity = '1';
+                            errorDiv.style.transform = 'translateY(0)';
+                        }, 10);
+                    })
+                    .finally(handleLoadComplete);
+            // 如果是电影榜、电视榜或动漫榜，使用数据库数据
+            } else if (chart === 'douban-movie' || chart === 'douban-weekly' || chart === 'douban-anime') {
+                // 确定category
+                let category;
+                if (chart === 'douban-movie') {
+                    category = '电影';
+                } else if (chart === 'douban-weekly') {
+                    category = '电视剧';
+                } else {
+                    category = '动漫';
+                }
+                // 从数据库获取热门电影/电视剧数据
+                fetch(`/api/movies/hot?page=${doubanCurrentPage}&limit=12&category=${encodeURIComponent(category)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.code === 0 && data.data && data.data.items) {
+                            if (data.data.items.length > 0) {
+                                // 转换数据格式
+                                const movies = data.data.items.map(movie => ({
+                                    id: movie.id,
+                                    title: movie.title,
+                                    cover: movie.cover_url || null,
+                                    desc: movie.genres ? movie.genres.join(' / ') : '',
+                                    hot: movie.query_count || 0,
+                                    url: movie.url || '#'
+                                }));
+                                renderDoubanMovies(movies, reset);
+                                doubanHasMore = data.data.hasMore;
+                                doubanCurrentPage++;
+                            } else if (reset) {
+                                container.innerHTML = `
+                                    <div class="text-center py-5">
+                                        <p class="text-muted">暂无热门影视数据</p>
+                                    </div>
+                                `;
+                            }
+                        } else if (reset) {
+                            container.innerHTML = `
+                                <div class="text-center py-5">
+                                    <p class="text-muted">暂无热门影视数据</p>
+                                </div>
+                            `;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('加载数据库影视数据失败:', error);
+                        if (reset) {
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'text-center py-5';
+                            errorDiv.innerHTML = `<p class="text-danger">加载失败，请稍后重试</p>`;
+                            errorDiv.style.opacity = '0';
+                            errorDiv.style.transform = 'translateY(10px)';
+                            errorDiv.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                            
+                            container.innerHTML = '';
+                            container.appendChild(errorDiv);
+                            
+                            setTimeout(() => {
+                                errorDiv.style.opacity = '1';
+                                errorDiv.style.transform = 'translateY(0)';
+                            }, 10);
+                        }
+                    })
+                    .finally(handleLoadComplete);
+            } else {
+                // 其他榜单使用原API
+                fetch(`/api/douban-hot?category=${chart}&page=${doubanCurrentPage}&limit=12`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.code === 0 && data.data && data.data.items) {
+                            if (data.data.items.length > 0) {
+                                renderDoubanMovies(data.data.items, reset);
+                                doubanHasMore = data.data.hasMore;
+                                doubanCurrentPage++;
+                            } else if (reset) {
+                                container.innerHTML = `
+                                    <div class="text-center py-5">
+                                        <p class="text-muted">暂无热门影视数据</p>
+                                    </div>
+                                `;
+                            }
+                        } else if (reset) {
+                            container.innerHTML = `
+                                <div class="text-center py-5">
+                                    <p class="text-muted">暂无热门影视数据</p>
+                                </div>
+                            `;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('加载豆瓣榜单失败:', error);
+                        if (reset) {
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'text-center py-5';
+                            errorDiv.innerHTML = `<p class="text-danger">加载失败，请稍后重试</p>`;
+                            errorDiv.style.opacity = '0';
+                            errorDiv.style.transform = 'translateY(10px)';
+                            errorDiv.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                            
+                            container.innerHTML = '';
+                            container.appendChild(errorDiv);
+                            
+                            setTimeout(() => {
+                                errorDiv.style.opacity = '1';
+                                errorDiv.style.transform = 'translateY(0)';
+                            }, 10);
+                        }
+                    })
+                    .finally(handleLoadComplete);
+            }
+        }
+
+        function renderDoubanMovies(movies, reset = false) {
+            const container = document.getElementById('doubanMoviesContainer');
+            if (!container) {
+                return;
+            }
+            
+            let movieList;
+            
+            if (reset) {
+                container.style.visibility = 'hidden';
+                
+                movieList = document.createElement('div');
+                movieList.className = 'douban-movie-list';
+                movieList.style.opacity = '0';
+                movieList.style.transform = 'translateY(10px)';
+                movieList.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                
+                container.innerHTML = '';
+            } else {
+                movieList = container.querySelector('.douban-movie-list');
+                if (!movieList) {
+                    movieList = document.createElement('div');
+                    movieList.className = 'douban-movie-list';
+                    container.appendChild(movieList);
+                }
+            }
+            
+            const startIndex = reset ? 0 : movieList.children.length;
+            
+            const fragment = document.createDocumentFragment();
+            
+            movies.forEach((movie, index) => {
+                let poster = movie.cover;
+                const title = movie.title || '';
+                const desc = movie.desc || '';
+                
+                let cleanTitle = title;
+                if (cleanTitle.startsWith('【') && cleanTitle.includes('】')) {
+                    cleanTitle = cleanTitle.substring(cleanTitle.indexOf('】') + 1);
+                } else if (cleanTitle.startsWith('#')) {
+                    const parts = cleanTitle.split(' ');
+                    if (parts.length > 1) {
+                        cleanTitle = parts.slice(1).join(' ');
+                    }
+                }
+                cleanTitle = cleanTitle.trim();
+                
+                const card = document.createElement('div');
+                card.className = 'douban-movie-card';
+                card.setAttribute('data-title', cleanTitle);
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(10px)';
+                card.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                card.style.transitionDelay = `${index * 0.02}s`;
+                
+                let posterHtml = '';
+                if (poster) {
+                    const safeTitle = cleanTitle.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '');
+                    const imageUrl = `/seedhub_images/${encodeURIComponent(safeTitle)}.jpg`;
+                    posterHtml = `
+                        <div class="poster-container">
+                            <img src="${imageUrl}" class="douban-movie-poster" alt="${escapeHtml(cleanTitle)}" loading="lazy" onload="this.style.display='block'" onerror="this.style.display='none'; var placeholder = document.createElement('div'); placeholder.className='douban-movie-placeholder'; placeholder.textContent='暂无图片'; this.parentElement.appendChild(placeholder); this.remove();">
+                        </div>
+                    `;
+                } else {
+                    posterHtml = '<div class="douban-movie-placeholder">暂无图片</div>';
+                }
+                
+                card.innerHTML = `
+                    ${posterHtml}
+                    <div class="douban-movie-info">
+                        <div class="douban-movie-title">${escapeHtml(title)}</div>
+                        ${desc ? `<div class="douban-movie-rating"><i class="fas fa-star"></i>${escapeHtml(desc)}</div>` : ''}
+                    </div>
+                `;
+                
+                card.addEventListener('click', function() {
+                    const title = this.getAttribute('data-title');
+                    const searchInput = document.getElementById('searchInput');
+                    const searchButton = document.getElementById('searchButton');
+                    if (searchInput && searchButton && title) {
+                        searchInput.value = title;
+                        searchButton.click();
+                    }
+                });
+                
+                fragment.appendChild(card);
+            });
+            
+            movieList.appendChild(fragment);
+            
+            if (reset) {
+                container.appendChild(movieList);
+                container.style.visibility = 'visible';
+                
+                requestAnimationFrame(() => {
+                    movieList.style.opacity = '1';
+                    movieList.style.transform = 'translateY(0)';
+                    
+                    const cards = movieList.querySelectorAll('.douban-movie-card');
+                    cards.forEach((card, index) => {
+                        setTimeout(() => {
+                            card.style.opacity = '1';
+                            card.style.transform = 'translateY(0)';
+                        }, index * 20);
+                    });
+                });
+                
+                setupDoubanScrollListener();
+            } else {
+                const cards = Array.from(movieList.querySelectorAll('.douban-movie-card'));
+                const newCards = cards.slice(startIndex);
+                newCards.forEach((card, index) => {
+                    setTimeout(() => {
+                        card.style.opacity = '1';
+                        card.style.transform = 'translateY(0)';
+                    }, index * 20);
+                });
+            }
+        }
+
+        function setupDoubanScrollListener() {
+            const container = document.getElementById('doubanMoviesContainer');
+            if (!container) return;
+            
+            const movieList = container.querySelector('.douban-movie-list');
+            if (!movieList) return;
+            
+            if (doubanScrollHandler) {
+                movieList.removeEventListener('scroll', doubanScrollHandler);
+            }
+            
+            doubanScrollHandler = function() {
+                if (doubanIsLoading || !doubanHasMore) return;
+                
+                const scrollLeft = movieList.scrollLeft;
+                const scrollWidth = movieList.scrollWidth;
+                const clientWidth = movieList.clientWidth;
+                
+                if (scrollLeft + clientWidth >= scrollWidth - 200) {
+                    loadDoubanMovies(currentDoubanChart, false);
+                }
+            };
+            
+            movieList.addEventListener('scroll', doubanScrollHandler);
+        }
+    </script>
 {% endblock %}

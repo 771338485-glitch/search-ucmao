@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  # Web 应用服务
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: search-ucmao-web
+    restart: unless-stopped
+    ports:
+      - "5004:5004"
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=192.168.0.103
+    volumes:
+      - app_logs:/app/logs
+      - ./static/images:/app/static/images:rw
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  app_logs:
+    name: search-ucmao-app-logs

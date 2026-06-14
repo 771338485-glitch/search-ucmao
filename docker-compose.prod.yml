@@ -1,0 +1,100 @@
+# ============================================
+# Docker Compose 生产环境配置
+# ============================================
+# 使用方式: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+version: '3.8'
+
+services:
+  web:
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    # 生产环境使用 Gunicorn，增加 worker 数量
+    command: >
+      gunicorn
+      --bind 0.0.0.0:5004
+      --workers 8
+      --threads 4
+      --worker-class gthread
+      --timeout 120
+      --keep-alive 5
+      --max-requests 1000
+      --max-requests-jitter 50
+      --access-logfile -
+      --error-logfile -
+      --log-level info
+      app:app
+    # 生产环境不挂载代码目录
+    volumes:
+      - app_logs:/app/logs
+      - ./static/images:/app/static/images:rw
+    environment:
+      - FLASK_ENV=production
+      - PYTHONOPTIMIZE=1
+    # 生产环境启用自动重启
+    restart: unless-stopped
+
+  db:
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    # 生产环境 MySQL 优化配置
+    command: 
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --innodb-buffer-pool-size=2G
+      - --innodb-log-file-size=256M
+      - --innodb-flush-log-at-trx-commit=2
+      - --innodb-flush-method=O_DIRECT
+      - --max-connections=200
+      - --query-cache-type=0
+      - --query-cache-size=0
+      - --tmp-table-size=64M
+      - --max-heap-table-size=64M
+      - --slow-query-log=1
+      - --slow-query-log-file=/var/log/mysql/slow.log
+      - --long-query-time=2
+    # 生产环境不暴露 MySQL 端口到公网
+    ports: []
+    # 生产环境添加日志卷
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - mysql_logs:/var/log/mysql
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+
+  # 生产环境可选：添加 Redis 缓存服务
+  redis:
+    image: redis:7-alpine
+    container_name: search-ucmao-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123456}
+    volumes:
+      - redis_data:/data
+    networks:
+      - search-ucmao-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  mysql_data:
+  mysql_logs:
+  app_logs:
+  redis_data:
+
+networks:
+  search-ucmao-network:
