@@ -160,7 +160,7 @@ def init_app():
     init_movie_genres_table()
     init_tags_table()
     init_movie_tags_table()
-    start_scheduler(interval_minutes=15, expire_minutes=15)
+    start_scheduler(interval_minutes=5, expire_minutes=5)
     start_email_scheduler()  # 启动邮件通知调度器
     start_movie_crawl_scheduler()  # 启动电影采集调度器
     logger.info("应用初始化完成")

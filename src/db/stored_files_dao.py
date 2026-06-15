@@ -118,7 +118,7 @@ def get_expired_files(expire_minutes: int = 15) -> List[Dict]:
     select_sql = """
     SELECT id, file_id, file_name, cloud_name, delete_status, delete_attempts
     FROM stored_files
-    WHERE delete_status = 'pending' AND created_at < datetime('now', ?)
+    WHERE delete_status = 'pending' AND created_at < datetime('now', 'localtime', ?)
     ORDER BY created_at ASC
     """
 

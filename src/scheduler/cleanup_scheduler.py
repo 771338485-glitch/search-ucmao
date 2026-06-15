@@ -16,7 +16,7 @@ _scheduler_thread = None
 _stop_event = threading.Event()
 
 
-def clean_expired_files(expire_minutes: int = 15):
+def clean_expired_files(expire_minutes: int = 5):
     """
     清理过期的转存文件
     """
@@ -182,7 +182,7 @@ def clean_expired_movies(days: int = 30):
     logger.info(f"[定时清理] 影视数据清理完成: 成功删除 {deleted_movies} 部影视, {deleted_images} 张图片, 失败 {failed_images} 张图片")
 
 
-def _scheduler_loop(interval_minutes: int = 15, expire_minutes: int = 15):
+def _scheduler_loop(interval_minutes: int = 5, expire_minutes: int = 5):
     """
     定时任务循环
     """
@@ -201,7 +201,7 @@ def _scheduler_loop(interval_minutes: int = 15, expire_minutes: int = 15):
         _stop_event.wait(interval_minutes * 60)
 
 
-def start_scheduler(interval_minutes: int = 15, expire_minutes: int = 15):
+def start_scheduler(interval_minutes: int = 5, expire_minutes: int = 5):
     """
     启动定时清理任务
     :param interval_minutes: 检查间隔（分钟）
