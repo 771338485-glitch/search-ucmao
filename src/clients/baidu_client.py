@@ -6,6 +6,9 @@ import random
 import logging
 import urllib.parse
 from typing import Tuple, List, Optional
+import subprocess
+import os
+import tempfile
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +20,8 @@ class Baidu:
 
     def __init__(self, cookie: str) -> None:
         self.session = requests.Session()
+        # 绕过系统代理（如 Clash），直连百度网盘
+        self.session.trust_env = False
         self.headers = {
             'Host': 'pan.baidu.com',
             'Connection': 'keep-alive',
@@ -168,51 +173,154 @@ class Baidu:
             logger.error(f"百度网盘 Store 操作异常: {e}")
             return None, None, None
 
-    def del_file(self, file_path_list: List[str]) -> bool:
+    def _get_captcha(self) -> tuple:
         """
-        删除文件
+        获取百度验证码图片和token
+        :return: (vcode_token, captcha_text) or (None, None)
+        """
+        try:
+            url = "https://pan.baidu.com/api/getvcode"
+            params = {
+                "prod": "filemanager",
+                "tpl": "filemanager",
+                "vcode_type": 1,
+            }
+            res = self.session.get(url, params=params, timeout=10)
+            data = res.json()
+            vcode = data.get("vcode", "")
+            img_url = data.get("img", "")
+            if not vcode or not img_url:
+                logger.error(f"[百度网盘] 获取验证码失败: {data}")
+                return None, None
+            # 下载验证码图片
+            img_res = self.session.get(img_url, timeout=10)
+            if img_res.status_code != 200:
+                logger.error(f"[百度网盘] 下载验证码图片失败: {img_res.status_code}")
+                return None, None
+            # 保存到临时文件
+            fd, img_path = tempfile.mkstemp(suffix=".jpg")
+            os.close(fd)
+            with open(img_path, "wb") as f:
+                f.write(img_res.content)
+            logger.info(f"[百度网盘] 验证码图片已下载: {img_path}")
+            return vcode, img_path
+        except Exception as e:
+            logger.error(f"[百度网盘] 获取验证码异常: {e}")
+            return None, None
+
+    def _ocr_captcha(self, img_path: str) -> str:
+        """
+        用 tesseract 识别验证码图片
+        :param img_path: 图片路径
+        :return: 识别出的文字
+        """
+        try:
+            result = subprocess.run(
+                ['tesseract', img_path, 'stdout', '--psm', '7',
+                 '-c', 'tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'],
+                capture_output=True, timeout=10
+            )
+            text = result.stdout.decode('utf-8', errors='ignore').strip()
+            # 清理多余空格和换行
+            text = re.sub(r'\s+', '', text)
+            logger.info(f"[百度网盘] 验证码OCR识别结果: {text}")
+            return text
+        except Exception as e:
+            logger.error(f"[百度网盘] OCR识别异常: {e}")
+            return ""
+        finally:
+            # 清理临时文件
+            try:
+                os.remove(img_path)
+            except:
+                pass
+
+    def del_file(self, file_path_list: List[str], max_retries: int = 3) -> bool:
+        """
+        删除文件，遇到 errno 132 (验证码) 时自动获取验证码并重试
         :param file_path_list: 文件路径列表 ["/我的资源/1.mp4"]
+        :param max_retries: 验证码重试次数
         """
         logger.debug(f"正在删除百度网盘文件: {file_path_list}")
         url = "https://pan.baidu.com/api/filemanager"
-        params = {
-            # 使用您实测成功的参数
-            "async": 2,
-            "onnest": "fail",
-            # 使用您实测成功的 opera 参数
-            "opera": "delete",
-            "bdstoken": self.bdstoken,
-            # 新增实测 URL 中的参数
-            "newVerify": 1,
-            "clienttype": 0,
-            "web": 1,
-            "app_id": 250528,
-            # 删除了 dp-logid，因为它通常是动态生成且非必需
-        }
+        
+        for attempt in range(max_retries + 1):
+            params = {
+                "async": 0,
+                "onnest": "fail",
+                "opera": "delete",
+                "bdstoken": self.bdstoken,
+                "newVerify": 1,
+                "verify_scene": 0,
+                "clienttype": 0,
+                "web": 1,
+                "app_id": 250528,
+            }
+            payload = {"filelist": json.dumps(file_path_list, ensure_ascii=False)}
 
-        # 修正 payload 格式：使用 json.dumps 确保路径中的特殊字符正确转义，
-        # 并保持 ensure_ascii=False 以避免中文问题。
-        payload = {"filelist": json.dumps(file_path_list, ensure_ascii=False)}
+            try:
+                res = self.session.post(url, params=params, data=payload)
+                data = res.json()
+                errno = data.get("errno")
 
-        try:
-            # 百度删除接口通常需要 POST 表单数据
-            res = self.session.post(url, params=params, data=payload)
-            data = res.json()
-
-            if data.get("errno") == 0:
-                # errno 0 表示删除请求已成功提交，即使是异步任务也视为成功
-                logger.debug(f"文件删除请求提交成功 (Task ID: {data.get('taskid')})")
-                return True
-            # errno 2: 文件不存在，可能是重复删除，也可以视为成功
-            elif data.get("errno") == 2:
-                logger.debug(f"文件不存在 (errno: 2)，可能已被删除: {file_path_list}")
-                return True
-            else:
-                logger.error(f"文件删除请求失败, errno: {data.get('errno')}, 错误详情: {data}")
+                if errno == 0:
+                    logger.debug(f"文件删除请求提交成功 (Task ID: {data.get('taskid')})")
+                    return True
+                elif errno == 2:
+                    logger.debug(f"文件不存在 (errno: 2)，可能已被删除: {file_path_list}")
+                    return True
+                elif errno == 132:
+                    # 安全验证，需要验证码
+                    logger.warning(f"[百度网盘] 删除触发安全验证 (errno 132), 第 {attempt + 1}/{max_retries + 1} 次尝试")
+                    
+                    if attempt >= max_retries:
+                        logger.error(f"[百度网盘] 验证码重试次数用尽，删除失败: {file_path_list}")
+                        return False
+                    
+                    # 获取验证码
+                    vcode_token, img_path = self._get_captcha()
+                    if not vcode_token or not img_path:
+                        logger.error("[百度网盘] 获取验证码失败，跳过本次重试")
+                        time.sleep(2)
+                        continue
+                    
+                    # OCR 识别验证码
+                    captcha_text = self._ocr_captcha(img_path)
+                    if not captcha_text:
+                        logger.error("[百度网盘] 验证码OCR识别为空，跳过本次重试")
+                        time.sleep(2)
+                        continue
+                    
+                    # 带验证码重试
+                    logger.info(f"[百度网盘] 带验证码重试删除: vcode={vcode_token[:10]}..., input={captcha_text}")
+                    params["vcode"] = vcode_token
+                    params["input"] = captcha_text
+                    # 重试时使用同步模式
+                    params["async"] = 0
+                    
+                    try:
+                        res = self.session.post(url, params=params, data=payload)
+                        data = res.json()
+                        if data.get("errno") == 0:
+                            logger.debug(f"[百度网盘] 验证码重试删除成功")
+                            return True
+                        elif data.get("errno") == 2:
+                            logger.debug(f"[百度网盘] 文件已不存在，视为成功")
+                            return True
+                        else:
+                            logger.warning(f"[百度网盘] 验证码重试失败: errno={data.get('errno')}, data={data}")
+                    except Exception as e:
+                        logger.error(f"[百度网盘] 验证码重试请求异常: {e}")
+                    
+                    time.sleep(2)
+                else:
+                    logger.error(f"文件删除请求失败, errno: {errno}, 错误详情: {data}")
+                    return False
+            except Exception as e:
+                logger.error(f"删除请求异常: {e}")
                 return False
-        except Exception as e:
-            logger.error(f"删除请求异常: {e}")
-            return False
+        
+        return False
             
     def move_file(self, from_path: str, to_path: str) -> bool:
         """

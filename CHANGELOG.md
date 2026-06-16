@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.3.0] - 2026-06-16
+
+### 夸克洗白全流程 Bug 修复（5项）
+
+**Bug A: 裸 `requests.request()` 绕过代理设置**
+- 文件: `src/clients/quark_client.py`
+- `detail()`, `save_task_id()`, `share_task_id()` 改为 `self.session.get/post()`
+
+**Bug B: `task()` 轮询无间隔**
+- 文件: `src/clients/quark_client.py`
+- 加入 `time.sleep(0.5)`
+
+**Bug 1: 过期清理重试机制失效**
+- 文件: `src/db/stored_files_dao.py`
+- SQL 条件改为 `delete_status IN ('pending', 'failed') AND delete_attempts < 3`
+
+**Bug 2: `clean_taobai_files_by_time()` 死代码**
+- 文件: `src/scheduler/cleanup_scheduler.py`
+- 删除 4 个从未生效的函数 (-168 行)
+
+**Bug 3: `get_quota()` 返回 404**
+- 文件: `routes/hot_resource_routes.py`
+- Cookie 验证和配额查询改用 `get_all_file()`
+
+### Bug 4: 二维码定时任务重复提醒
+
+**问题**: 每天 0 点发送多封二维码到期邮件
+
+**根因**:
+1. `get_expiring_qr_codes()` 返回所有过期记录（含历史旧记录）
+2. `check_qr_code_expiry()` 从不调用 `mark_as_notified()`
+3. `upsert_qr_code()` 不删除旧记录
+
+**修复**:
+- `src/db/qr_code_dao.py` - `get_expiring_qr_codes()` 只返回最新一条；`insert_qr_code()` 插入前清空旧记录；`upsert_qr_code()` 更新后删除旧记录
+- `src/scheduler/email_scheduler.py` - 发送通知后 `mark_as_notified()`，已通知跳过
+
 ## [1.2.0] - 2026-06-15
 
 ### Bug Fix: 删除分享后stored_files缓存记录未清理

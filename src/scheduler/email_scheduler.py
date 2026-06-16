@@ -72,13 +72,13 @@ def check_cookies_expired():
     try:
         # 检查夸克网盘Cookie
         quark_cookie = get_cookie_by_cloud_name("夸克网盘")
-        if not quark_cookie or len(quark_cookie) < 300:
+        if not quark_cookie:
             expired_cookies.append({"name": "夸克网盘", "cookie": quark_cookie})
             logger.warning("[邮件通知] 夸克网盘Cookie已过期或未配置")
         
         # 检查百度网盘Cookie
         baidu_cookie = get_cookie_by_cloud_name("百度网盘")
-        if not baidu_cookie or len(baidu_cookie) < 300:
+        if not baidu_cookie:
             expired_cookies.append({"name": "百度网盘", "cookie": baidu_cookie})
             logger.warning("[邮件通知] 百度网盘Cookie已过期或未配置")
         
@@ -175,10 +175,10 @@ def check_qr_code_expiry():
     :return: 过期的二维码列表
     """
     try:
-        from src.db.qr_code_dao import get_expiring_qr_codes
+        from src.db.qr_code_dao import get_expiring_qr_codes, mark_as_notified
         from src.services.email_service import get_email_service
         
-        # 获取过期或已过期的二维码
+        # 获取最新的过期二维码记录（只返回一条）
         expiring_qr_codes = get_expiring_qr_codes(days=5)
         
         if expiring_qr_codes:
@@ -187,10 +187,16 @@ def check_qr_code_expiry():
             # 发送邮件通知
             email_service = get_email_service()
             for qr_code in expiring_qr_codes:
+                # 检查是否已通知，避免重复发送
+                if qr_code.get('notified') == 1:
+                    logger.info(f"[邮件通知] 二维码已通知过，跳过: {qr_code.get('file_name')}")
+                    continue
+                
                 success, message = email_service.send_qr_code_expiry_notification(qr_code)
                 if success:
                     logger.info(f"[邮件通知] 二维码到期通知邮件发送成功: {qr_code.get('file_name')}")
-                    # 不标记为已通知，每天都提醒，直到用户更新
+                    # 标记为已通知，避免每天重复发送
+                    mark_as_notified(qr_code.get('id'))
                 else:
                     logger.warning(f"[邮件通知] 二维码到期通知邮件发送失败: {message}")
         else:
@@ -236,25 +242,13 @@ def _email_scheduler_loop():
             elif now.hour != 0:
                 _daily_check_executed = False
 
-            # 检查是否是每月20号
-            if now.day == 20:
-                # 检查是否已经在今天发送过
-                # 简单的方式：每天只在9点检查一次
-                if now.hour == 9:
-                    logger.info(f"[邮件通知] 今天是每月20号，发送云盘Cookie提醒邮件")
-                    send_cookie_reminder_email()
-
-                    # 等待到明天再检查
-                    tomorrow = datetime(now.year, now.month, now.day) + timedelta(days=1)
-                    seconds_until_tomorrow = (tomorrow - now).total_seconds()
-
-                    logger.info(f"[邮件通知] 等待到明天再检查，需要等待 {seconds_until_tomorrow:.2f} 秒")
-                    if _email_stop_event.wait(seconds_until_tomorrow):
-                        break
-                    continue
+            # 检查是否是每月20号9点（只在9点发送一次，不跳过后续的22:00访客统计）
+            if now.day == 20 and now.hour == 9:
+                logger.info(f"[邮件通知] 今天是每月20号，发送云盘Cookie提醒邮件")
+                send_cookie_reminder_email()
 
             # 检查是否是每天22点
-            if now.hour == 22 and now.minute == 0:
+            if now.hour == 22:
                 logger.info(f"[邮件通知] 每天22点发送访客统计邮件")
                 send_visitor_stats_email()
                 

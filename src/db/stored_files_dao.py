@@ -115,10 +115,12 @@ def get_expired_files(expire_minutes: int = 15) -> List[Dict]:
         过期文件记录列表
     """
     # 使用参数化查询避免 SQL 注入风险
+    # 包含 pending 和 failed（重试次数<3）的记录，避免 failed 记录永远不被重试
     select_sql = """
     SELECT id, file_id, file_name, cloud_name, delete_status, delete_attempts
     FROM stored_files
-    WHERE delete_status = 'pending' AND created_at < datetime('now', 'localtime', ?)
+    WHERE delete_status IN ('pending', 'failed') AND delete_attempts < 3
+      AND created_at < datetime('now', 'localtime', ?)
     ORDER BY created_at ASC
     """
 

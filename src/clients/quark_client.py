@@ -49,6 +49,9 @@ class Quark:
     ad_pwd_id = "0df525db2bd0"
 
     def __init__(self, cookie: str) -> None:
+        self.session = requests.Session()
+        # 绕过系统代理（如 Clash），直连夸克网盘
+        self.session.trust_env = False
         self.headers = {
             'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
             'accept': 'application/json, text/plain, */*',
@@ -154,7 +157,7 @@ class Quark:
         url = f"https://drive-pc.quark.cn/1/clouddrive/share/sharepage/token?pr=ucpro&fr=pc&uc_param_str=&__dt=405&__t={generate_timestamp(13)}"
         payload = {"pwd_id": pwd_id, "passcode": ""}
         headers = self.headers
-        response = requests.post(url, json=payload, headers=headers).json()
+        response = self.session.post(url, json=payload, headers=headers).json()
         if response.get("data"):
             return response["data"]["stoken"]
         else:
@@ -170,7 +173,7 @@ class Quark:
             "_page": 1,
             "_size": "50",
         }
-        response = requests.request("GET", url=url, headers=headers, params=params)
+        response = self.session.get(url=url, headers=headers, params=params)
         response_data = response.json().get("data", {})
         file_list = response_data.get("list", [])
 
@@ -206,7 +209,7 @@ class Quark:
                 "fid_token_list": [share_fid_token],
                 "to_pdir_fid": to_pdir_fid, "pwd_id": pwd_id,
                 "stoken": stoken, "pdir_fid": "0", "scene": "link"}
-        response = requests.request("POST", url, json=data, headers=self.headers, params=params)
+        response = self.session.post(url, json=data, headers=self.headers, params=params)
         resp_json = response.json()
         logger.info(f"保存文件API响应: {resp_json}")
         if resp_json.get('data'):
@@ -224,11 +227,12 @@ class Quark:
             url = f"https://drive-pc.quark.cn/1/clouddrive/task?pr=ucpro&fr=pc&uc_param_str=&task_id={task_id}&retry_index={i}&__dt=21192&__t={generate_timestamp(13)}"
             trys += 1
             try:
-                response = requests.get(url, headers=self.headers).json()
+                response = self.session.get(url, headers=self.headers).json()
                 if response and response.get('data') and response.get('data').get('status'):
                     return response
             except Exception as e:
                 logger.error(f"执行任务时发生异常: {e}")
+            time.sleep(0.5)
         logger.warning(f"任务执行失败或超时: {task_id}")
         return None
 
@@ -239,7 +243,7 @@ class Quark:
                 "title": file_name,
                 "url_type": 1, "expired_type": 1}
         try:
-            response = requests.request("POST", url=url, json=data, headers=self.headers, timeout=30)
+            response = self.session.post(url=url, json=data, headers=self.headers, timeout=30)
             response.raise_for_status()
             json_data = response.json()
             if not json_data or not json_data.get("data"):
@@ -254,7 +258,7 @@ class Quark:
         url = "https://drive-pc.quark.cn/1/clouddrive/share/password?pr=ucpro&fr=pc&uc_param_str="
         data = {"share_id": share_id}
         try:
-            response = requests.post(url=url, json=data, headers=self.headers, timeout=30)
+            response = self.session.post(url=url, json=data, headers=self.headers, timeout=30)
             response.raise_for_status()
             json_data = response.json()
             if not json_data or not json_data.get("data"):
@@ -276,7 +280,7 @@ class Quark:
             "_fetch_sub_dirs": 0,
             "_sort": "file_type:asc,updated_at:desc"
         }
-        response = requests.get(url=url, headers=self.headers, params=params)
+        response = self.session.get(url=url, headers=self.headers, params=params)
         try:
             json_data = response.json()
             if json_data and json_data.get('data') and json_data.get('data').get('list') is not None:
@@ -299,7 +303,7 @@ class Quark:
             "_fetch_sub_dirs": 0,
             "_sort": "file_type:asc,updated_at:desc"
         }
-        response = requests.get(url=url, headers=self.headers, params=params)
+        response = self.session.get(url=url, headers=self.headers, params=params)
         try:
             json_data = response.json()
             if json_data and json_data.get('data') and json_data.get('data').get('list') is not None:
@@ -356,14 +360,14 @@ class Quark:
             "dir_path": "",
             "dir_init_lock": False
         }
-        response = requests.post(url, json=data, headers=self.headers)
+        response = self.session.post(url, json=data, headers=self.headers)
         return response.json()
 
     def rename_dir(self, dir_id: str, new_name: str):
         logger.info(f"重命名目录: {dir_id} 为 {new_name}")
         url = "https://drive-pc.quark.cn/1/clouddrive/file/rename?pr=ucpro&fr=pc&uc_param_str="
         data = {"fid": dir_id, "file_name": new_name}
-        response = requests.post(url, json=data, headers=self.headers)
+        response = self.session.post(url, json=data, headers=self.headers)
         return response.json()
 
     def move_file(self, file_fid: str, to_pdir_fid: str):
@@ -375,13 +379,13 @@ class Quark:
             "filelist": [file_fid],
             "to_pdir_fid": to_pdir_fid
         }
-        response = requests.post(url, json=data, headers=self.headers)
+        response = self.session.post(url, json=data, headers=self.headers)
         return response.json()
 
     def del_file(self, file_id):
         url = "https://drive-pc.quark.cn/1/clouddrive/file/delete?pr=ucpro&fr=pc&uc_param_str="
         data = {"action_type": 2, "filelist": [file_id], "exclude_fids": []}
-        response = requests.post(url=url, json=data, headers=self.headers)
+        response = self.session.post(url=url, json=data, headers=self.headers)
         if response.status_code == 200:
             result = response.json()
             code = result.get("code", -1)
@@ -416,7 +420,7 @@ class Quark:
         url = "https://drive-pc.quark.cn/1/clouddrive/file/search?pr=ucpro&fr=pc&uc_param_str=&_page=1&_size=50&_fetch_total=1&_sort=file_type:desc,updated_at:desc&_is_hl=1"
         params = {"q": file_name}
         try:
-            response = requests.get(url=url, headers=self.headers, params=params, timeout=30)
+            response = self.session.get(url=url, headers=self.headers, params=params, timeout=30)
             response.raise_for_status()
             json_data = response.json()
             if not json_data or not json_data.get('data'):
@@ -430,20 +434,24 @@ class Quark:
     def get_quota(self):
         """获取网盘空间使用情况"""
         logger.info("正在验证夸克网盘Cookie")
-        url = "https://drive-pc.quark.cn/1/clouddrive/capacity?pr=ucpro&fr=pc&uc_param_str="
+        # 旧接口 /capacity 已下线(404)，改用 /capacity/detail
+        url = "https://drive-pc.quark.cn/1/clouddrive/capacity/detail?pr=ucpro&fr=pc&uc_param_str="
         try:
-            response = requests.get(url, headers=self.headers, timeout=10)
+            response = self.session.get(url, headers=self.headers, timeout=10)
             response.raise_for_status()
             data = response.json()
             if data.get('data'):
-                total = data['data'].get('total_capacity', 0)
-                used = data['data'].get('used_capacity', 0)
+                summary = data['data'].get('capacity_summary', {})
+                total = summary.get('sum_capacity', 0)
+                # /capacity/detail 不返回已用空间，只能获取总容量
+                used = 0
                 used_percent = (used / total * 100) if total > 0 else 0
                 return {
                     'used': used,
                     'total': total,
                     'free': total - used,
-                    'used_percent': round(used_percent, 2)
+                    'used_percent': round(used_percent, 2),
+                    'note': '夸克新接口不返回已用空间，used为估算值'
                 }
             else:
                 logger.warning(f"get_quota 响应格式异常: {data}")
@@ -465,7 +473,7 @@ class Quark:
             "_sort": "updated_at:asc"  # 按更新时间升序，最旧的在前
         }
         try:
-            response = requests.get(url, headers=self.headers, params=params)
+            response = self.session.get(url, headers=self.headers, params=params)
             data = response.json()
             if data.get('code') == 0 and data.get('data'):
                 return data['data'].get('list', [])
@@ -486,7 +494,7 @@ class Quark:
             "exclude_fids": []
         }
         try:
-            response = requests.post(url, json=data, headers=self.headers)
+            response = self.session.post(url, json=data, headers=self.headers)
             result = response.json()
             if result.get('code') == 0:
                 logger.info(f"批量删除成功: {len(file_ids)} 个文件")

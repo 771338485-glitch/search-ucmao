@@ -34,7 +34,7 @@ def init_qr_code_table():
 
 def insert_qr_code(record: Dict) -> Optional[int]:
     """
-    插入二维码记录
+    插入二维码记录（插入前先清空旧记录，保证表中只有一条数据）
     """
     file_name = record.get("file_name")
     file_path = record.get("file_path")
@@ -52,6 +52,8 @@ def insert_qr_code(record: Dict) -> Optional[int]:
             return None
         
         try:
+            # 先清空所有旧记录，保证只有一条
+            cursor.execute("DELETE FROM qr_code")
             cursor.execute(sql, params)
             new_id = cursor.lastrowid
             logger.info(f"成功插入二维码记录: {file_name}, ID: {new_id}")
@@ -91,12 +93,14 @@ def get_latest_qr_code() -> Optional[Dict]:
 
 def get_expiring_qr_codes(days: int = 5) -> list:
     """
-    获取过期或已过期的二维码记录（过期当天或已过期）
+    获取最新的过期二维码记录（只返回一条，避免重复通知）
     """
     sql = """
     SELECT id, upload_time, file_name, file_path, file_size, expires_at, notified
     FROM qr_code
     WHERE date(expires_at) <= date('now')
+    ORDER BY upload_time DESC
+    LIMIT 1
     """
     
     with db_cursor(dictionary=True) as cursor:
@@ -105,9 +109,12 @@ def get_expiring_qr_codes(days: int = 5) -> list:
         
         try:
             cursor.execute(sql)
-            rows = cursor.fetchall()
-            logger.info(f"获取到 {len(rows)} 条过期或已过期的二维码记录")
-            return rows
+            row = cursor.fetchone()
+            if row:
+                logger.info(f"获取到最新的过期二维码记录: {row.get('file_name')}")
+                return [row]
+            logger.info("没有过期的二维码记录")
+            return []
         except Exception as e:
             logger.error(f"获取过期二维码记录失败: {e}")
             return []
@@ -193,6 +200,8 @@ def upsert_qr_code(record: Dict) -> Optional[int]:
             
             try:
                 cursor.execute(sql, params)
+                # 删除旧记录，只保留最新的一条
+                cursor.execute("DELETE FROM qr_code WHERE id != %s", (latest['id'],))
                 logger.info(f"成功更新二维码记录: {file_name}, ID: {latest['id']}")
                 return latest['id']
             except Exception as e:

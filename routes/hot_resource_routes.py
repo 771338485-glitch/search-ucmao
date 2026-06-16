@@ -146,12 +146,10 @@ def save_cookie_config():
         logger.info("开始验证夸克网盘Cookie")
         try:
             client = Quark(quark_cookie)
-            quota = client.get_quota()
-            if not quota:
+            files = client.get_all_file()
+            if files is None or (isinstance(files, list) and len(files) == 0 and not client.session.cookies):
                 return jsonify({"success": False, "message": "夸克网盘Cookie无效，请检查后重新输入"}), 400
-            used_gb = round(quota['used'] / (1024**3), 2)
-            total_gb = round(quota['total'] / (1024**3), 2)
-            messages.append(f"夸克网盘Cookie验证成功（已用{used_gb}GB/{total_gb}GB）")
+            messages.append(f"夸克网盘Cookie验证成功（文件数: {len(files) if isinstance(files, list) else '未知'}）")
         except Exception as e:
             logger.error(f"验证夸克网盘Cookie失败: {e}")
             return jsonify({"success": False, "message": "夸克网盘Cookie验证失败，请检查后重新输入"}), 400
@@ -260,16 +258,23 @@ def get_quota_info():
         else:
             return jsonify({"success": False, "message": "不支持的网盘类型"}), 400
         
-        quota = client.get_quota()
-        
-        if quota:
-            # 转换字节为GB显示
+        if cloud_name == "夸克网盘":
+            quota = client.get_quota()
+            if not quota or quota.get('total', 0) == 0:
+                return jsonify({"success": False, "message": "夸克网盘Cookie无效或已过期"}), 400
             quota['used_gb'] = round(quota['used'] / (1024**3), 2)
             quota['total_gb'] = round(quota['total'] / (1024**3), 2)
             quota['free_gb'] = round(quota['free'] / (1024**3), 2)
             return jsonify({"success": True, "data": quota})
         else:
-            return jsonify({"success": False, "message": "获取空间信息失败"}), 500
+            quota = client.get_quota()
+            if quota:
+                quota['used_gb'] = round(quota['used'] / (1024**3), 2)
+                quota['total_gb'] = round(quota['total'] / (1024**3), 2)
+                quota['free_gb'] = round(quota['free'] / (1024**3), 2)
+                return jsonify({"success": True, "data": quota})
+            else:
+                return jsonify({"success": False, "message": "获取空间信息失败"}), 500
     except Exception as e:
         logger.error(f"获取空间信息时出错: {e}")
         return jsonify({"success": False, "message": f"获取空间信息失败: {str(e)}"}), 500
@@ -318,6 +323,3 @@ def clean_old_files():
     except Exception as e:
         logger.error(f"清理文件时出错: {e}")
         return jsonify({"success": False, "message": f"清理失败: {str(e)}"}), 500
-
-
-
