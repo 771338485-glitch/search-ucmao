@@ -9,17 +9,25 @@ services:
     container_name: search-ucmao-web
     restart: unless-stopped
     ports:
-      - "5004:5004"
+      - "80:5004"
     env_file:
       - .env
-    environment:
-      - DB_HOST=192.168.0.103
     volumes:
       - app_logs:/app/logs
+      - app_data:/app/data
       - ./static/images:/app/static/images:rw
+      - ./seedhub_images:/app/seedhub_images:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5004/"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
 
 volumes:
   app_logs:
     name: search-ucmao-app-logs
+  app_data:
+    name: search-ucmao-app-data

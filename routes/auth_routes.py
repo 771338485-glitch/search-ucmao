@@ -34,7 +34,7 @@ def login():
                 'token',
                 token,
                 httponly=True,
-                secure=True,      # 仅通过 HTTPS 传输
+                secure=False,     # HTTP 环境不设置 secure
                 samesite='Lax',   # 防止 CSRF
                 path='/',
                 max_age=86400     # 24 小时
