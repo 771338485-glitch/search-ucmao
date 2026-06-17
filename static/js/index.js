@@ -320,12 +320,17 @@ function performSearch() {
         }
     }, 30000);
 
+    // 首批结果到达后，设置提前结束定时器
+    let _firstResultsArrived = false;
+    let _earlyFinishTimer = null;
+    
     eventSource.onmessage = function(event) {
         try {
             const data = JSON.parse(event.data);
 
             if (data.type === 'end') {
                 clearTimeout(searchTimeout);
+                if (_earlyFinishTimer) clearTimeout(_earlyFinishTimer);
                 eventSource.close();
                 finalizeSearch();
             } else if (data.results && data.results.length > 0) {
@@ -335,8 +340,20 @@ function performSearch() {
 
                 if (allResults.length > currentLength) {
                     updateFilterButtons();
-                    if (allResults.length <= itemsPerPage) {
-                        renderResults(true);
+                    // 首批结果到达时立即渲染卡片
+                    renderResults(currentLength === 0);
+                    
+                    // 首批结果到达后，设置 3 秒自动结束（不等慢 API）
+                    if (!_firstResultsArrived) {
+                        _firstResultsArrived = true;
+                        _earlyFinishTimer = setTimeout(function() {
+                            if (isSearchRunning) {
+                                console.log('已有结果，提前结束搜索等待');
+                                clearTimeout(searchTimeout);
+                                eventSource.close();
+                                finalizeSearch();
+                            }
+                        }, 3000);
                     }
                 }
             }

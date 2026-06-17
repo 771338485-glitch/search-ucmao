@@ -58,5 +58,5 @@ user_agents = [
 # 搜索配置
 SEARCH_MAX_CONCURRENCY = int(os.getenv('SEARCH_MAX_CONCURRENCY', '8'))  # 最大并发数
 SEARCH_VARIANT_TRIGGER = int(os.getenv('SEARCH_VARIANT_TRIGGER', '25'))  # 触发变体搜索的结果阈值
-SEARCH_PLUGIN_TIMEOUT_MS = int(os.getenv('SEARCH_PLUGIN_TIMEOUT_MS', '8000'))  # API超时时间（毫秒）
+SEARCH_PLUGIN_TIMEOUT_MS = int(os.getenv('SEARCH_PLUGIN_TIMEOUT_MS', '20000'))  # API超时时间（毫秒）
     

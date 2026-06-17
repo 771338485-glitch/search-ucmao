@@ -3,6 +3,8 @@ import json
 import logging
 import random
 import re
+import os
+import subprocess
 import time
 import threading
 
@@ -52,6 +54,28 @@ read_api_configs = read_all_api_configs_from_db
 api_response_times = {}
 api_response_times_lock = threading.Lock()
 
+
+def _curl_fetch(url, method, request_data, timeout):
+    """使用 curl 作为后备方案（解决 Python requests 代理兼容性问题）。"""
+    try:
+        cmd = ['curl', '-s', '--max-time', str(int(timeout)), '--noproxy', '*']
+        # 直连模式，不走代理（系统 SOCKS5 代理会导致超时）
+        logger.info(f"curl 直连模式, 超时: {int(timeout)}秒")
+        if method.upper() == 'POST' and request_data:
+            cmd.extend(['-X', 'POST', '-H', 'Content-Type: application/json', '-d', request_data])
+        cmd.append(url)
+        logger.info(f"curl 后备请求: {' '.join(cmd[:6])}...")
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 5)
+        logger.info(f"curl 返回: returncode={result.returncode}, stdout长度={len(result.stdout or '')}, stderr={result.stderr[:200] if result.stderr else '无'}")
+        if result.returncode == 0 and result.stdout:
+            return json.loads(result.stdout)
+        if result.returncode != 0:
+            logger.warning(f"curl 返回非零退出码: {result.returncode}, stderr: {result.stderr}")
+    except Exception as e:
+        logger.warning(f"curl 后备方案异常: {e}")
+    return None
+
+
 def fetch_data(url, method, request_data, timeout=None):
     """根据配置发起 HTTP 请求并返回响应内容。"""
     # 使用配置的超时时间，如果未指定则使用默认值
@@ -69,16 +93,23 @@ def fetch_data(url, method, request_data, timeout=None):
     except json.JSONDecodeError:
         data_obj = {}
 
-    response = None
     start_time = time.time()
 
     try:
+        # 代理环境变量已在 app.py 启动时清除，requests 可直连
+        # 禁止跟随重定向：某些 API 返回 301→HTTPS 但 HTTPS 不可达，会导致挂起
         if method.upper() == "GET":
-            response = requests.get(url, headers=headers, params=data_obj, timeout=timeout)
+            response = requests.get(url, headers=headers, params=data_obj, timeout=timeout, allow_redirects=False)
         elif method.upper() == "POST":
-            response = requests.post(url, headers=headers, json=data_obj, timeout=timeout)
+            response = requests.post(url, headers=headers, json=data_obj, timeout=timeout, allow_redirects=False)
         else:
             raise requests.exceptions.RequestException(f"不支持的 HTTP 方法: {method}")
+
+        # 如果是重定向响应，直接返回 None（不浪费时间跟随）
+        if 300 <= response.status_code < 400:
+            redirect_url = response.headers.get('Location', '未知')
+            logger.warning(f"API 返回重定向 {response.status_code}，跳过: {url} -> {redirect_url}")
+            return None
 
         response.raise_for_status()
         json_data = response.json()
@@ -91,15 +122,22 @@ def fetch_data(url, method, request_data, timeout=None):
 
         return json_data
 
-    except requests.exceptions.Timeout:
-        logger.warning(f"API 请求超时 ({url}) - 超时时间: {timeout}秒")
-        return None
-    except requests.exceptions.RequestException as e:
-        logger.error(f"API 请求失败 ({url}): {e}")
-        return None
+    except (requests.exceptions.Timeout, requests.exceptions.RequestException) as e:
+        logger.warning(f"requests 请求失败 ({url}): {e}，尝试 curl 后备方案")
+        # curl 回退：缩短超时，避免浪费太多时间
+        remaining = min(max(5, timeout - (time.time() - start_time)), 8)
+        curl_result = _curl_fetch(url, method, request_data, remaining)
+        if curl_result:
+            response_time = time.time() - start_time
+            with api_response_times_lock:
+                api_response_times[url] = response_time
+            logger.info(f"curl 后备方案成功 ({url}) - 响应时间: {response_time:.2f}秒")
+        return curl_result
     except json.JSONDecodeError:
         logger.error(f"API 响应不是有效的 JSON ({url})")
         return None
+    finally:
+        pass
 
 
 def extract_from_json(json_data, jmespath_query):
@@ -489,5 +527,3 @@ def search_resources(name="", cloud_name="", resource_type="", limit=100, sort="
     except Exception as e:
         logger.error(f"API错误: {e}")
         return False, f"API错误: {e}", []
-
-

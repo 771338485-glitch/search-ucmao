@@ -37,6 +37,13 @@ def validate_keyword(keyword: Optional[str]) -> Optional[str]:
     if not keyword:
         return None
     
+    # 修复 Latin-1 编码问题：curl 发送中文字符时，Flask/Werkzeug 可能以 Latin-1 解码
+    # 尝试将 Latin-1 编码的文本还原为 UTF-8
+    try:
+        keyword = keyword.encode('latin-1').decode('utf-8')
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        pass  # 不是 Latin-1 编码的 UTF-8，保持原样
+    
     # 移除首尾空格
     keyword = keyword.strip()
     

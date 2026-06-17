@@ -1,3 +1,12 @@
+# 在所有其他 import 之前清除代理环境变量
+# 系统 SOCKS5 代理会导致 requests 通过代理连接外部 HTTPS API，严重超时
+import os as _os
+for _pk in ['http_proxy', 'https_proxy', 'HTTP_PROXY', 'HTTPS_PROXY',
+            'all_proxy', 'ALL_PROXY', 'no_proxy', 'NO_PROXY']:
+    _os.environ.pop(_pk, None)
+# 禁止 requests 自动读取代理
+_os.environ['NO_PROXY'] = '*'
+
 import logging
 from functools import wraps
 from flask import Flask, render_template, request, abort, jsonify
